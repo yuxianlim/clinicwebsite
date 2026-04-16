@@ -50,7 +50,7 @@ const BookingModal = () => {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-400"
               placeholder="请输入您的姓名"
               required
             />
@@ -61,7 +61,7 @@ const BookingModal = () => {
               type="tel"
               value={formData.contact}
               onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-400"
               placeholder="请输入您的电话号码"
               required
             />
@@ -69,20 +69,22 @@ const BookingModal = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">预约日期 *</label>
             <input
-              type="date"
+              type="text"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none"
+              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-400"
+              placeholder="mm/dd/yyyy"
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">预约时间 *</label>
             <input
-              type="time"
+              type="text"
               value={formData.time}
               onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none"
+              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-400"
+              placeholder="HH:MM AM/PM"
               required
             />
           </div>
