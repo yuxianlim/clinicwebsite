@@ -21,6 +21,29 @@ const BookingModal = () => {
     practitioner: '',
   });
   const [selectColor, setSelectColor] = useState('text-slate-400');
+  const [timeColor, setTimeColor] = useState('text-slate-400');
+
+  // Generate time slots from 9 AM to 5:30 PM in 30-minute increments
+  const generateTimeSlots = () => {
+    const slots = [];
+    let hours = 9;
+    let minutes = 0;
+    
+    while (hours < 17 || (hours === 17 && minutes <= 30)) {
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+      const timeString = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+      slots.push(timeString);
+      
+      minutes += 30;
+      if (minutes === 60) {
+        minutes = 0;
+        hours += 1;
+      }
+    }
+    
+    return slots;
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -71,19 +94,26 @@ const BookingModal = () => {
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900"
+              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-400"
               required
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">预约时间 *</label>
-            <input
-              type="time"
+            <select
               value={formData.time}
-              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900"
+              onChange={(e) => {
+                setFormData({ ...formData, time: e.target.value });
+                setTimeColor('text-slate-900');
+              }}
+              className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none appearance-none ${timeColor}`}
               required
-            />
+            >
+              <option value="" disabled>选择时间</option>
+              {generateTimeSlots().map((slot) => (
+                <option key={slot} value={slot}>{slot}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">选择医师 *</label>
