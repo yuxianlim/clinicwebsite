@@ -94,7 +94,8 @@ const BookingModal = () => {
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-400"
+              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none placeholder-gray-400"
+              style={{ color: formData.date ? '#1f2937' : '#9ca3af' }}
               required
             />
           </div>
