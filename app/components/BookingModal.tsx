@@ -51,7 +51,6 @@ const BookingModal = () => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-400"
-              placeholder="请输入您的姓名"
               required
             />
           </div>
@@ -62,7 +61,7 @@ const BookingModal = () => {
               value={formData.contact}
               onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none text-gray-900 placeholder-gray-400"
-              placeholder="请输入您的电话号码"
+              placeholder="123-456-7890"
               required
             />
           </div>
