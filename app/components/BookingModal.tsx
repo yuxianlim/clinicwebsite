@@ -10,7 +10,7 @@ const practitioners = [
 ];
 
 const BookingModal = () => {
-  const { isOpen, setIsOpen: setBookingOpen } = useBooking();
+  const { isOpen, setIsOpen: setBookingOpen, addAppointment, getAppointmentsByDate } = useBooking();
   const onClose = () => setBookingOpen(false);
   
   const [formData, setFormData] = useState({
@@ -45,10 +45,35 @@ const BookingModal = () => {
     return slots;
   };
 
+  // Check if a time slot is booked for the selected practitioner
+  const isTimeSlotBooked = (time: string) => {
+    if (!formData.date || !formData.practitioner) return false;
+    const appointments = getAppointmentsByDate(formData.date);
+    return appointments.some(
+      (apt) => apt.time === time && apt.practitioner === formData.practitioner
+    );
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    // Handle form submission, e.g., send to API
-    console.log(formData);
+    
+    // Add appointment to context and localStorage
+    addAppointment({
+      name: formData.name,
+      contact: formData.contact,
+      date: formData.date,
+      time: formData.time,
+      practitioner: formData.practitioner,
+    });
+    
+    // Reset form and close modal
+    setFormData({
+      name: '',
+      contact: '',
+      date: '',
+      time: '',
+      practitioner: '',
+    });
     onClose();
   };
 
@@ -100,23 +125,6 @@ const BookingModal = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">预约时间 *</label>
-            <select
-              value={formData.time}
-              onChange={(e) => {
-                setFormData({ ...formData, time: e.target.value });
-                setTimeColor('text-slate-900');
-              }}
-              className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none appearance-none ${timeColor}`}
-              required
-            >
-              <option value="" disabled>选择时间</option>
-              {generateTimeSlots().map((slot) => (
-                <option key={slot} value={slot}>{slot}</option>
-              ))}
-            </select>
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">选择医师 *</label>
             <select
               value={formData.practitioner}
@@ -131,6 +139,28 @@ const BookingModal = () => {
               {practitioners.map((p) => (
                 <option key={p.id} value={p.name}>{p.name}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">预约时间 *</label>
+            <select
+              value={formData.time}
+              onChange={(e) => {
+                setFormData({ ...formData, time: e.target.value });
+                setTimeColor('text-slate-900');
+              }}
+              className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none appearance-none ${timeColor}`}
+              required
+            >
+              <option value="" disabled>选择时间</option>
+              {generateTimeSlots().map((slot) => {
+                const booked = isTimeSlotBooked(slot);
+                return (
+                  <option key={slot} value={slot} disabled={booked}>
+                    {slot}{booked ? ' (已预约)' : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div className="flex justify-end space-x-4 mt-6">
