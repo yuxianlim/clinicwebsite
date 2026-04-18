@@ -20,7 +20,7 @@ const Hero = () => {
       <div className="absolute inset-0 bg-black/30"></div>
       
       <div className="text-center relative z-10">
-        <h1 style={{ fontSize: '26px', color: '#ffffff' }} className="font-bold mb-4">欢迎来到圣恩中医诊所</h1>
+        <h1 style={{ fontSize: '26px', color: '#ffffff' }} className="font-bold mb-4">Welcome to Felicia Ho</h1>
         <p style={{ fontSize: '14px', color: '#ffffff' }} className="mb-8">专业的中医治疗服务，为您的健康保驾护航</p>
         <button
           onClick={() => setIsModalOpen(true)}

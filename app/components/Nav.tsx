@@ -14,7 +14,7 @@ const Nav = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link href="#hero" style={{ color: '#556B42' }} className="text-xl font-bold">
-              圣恩中医诊所
+              Felicia Ho
             </Link>
           </div>
           <div className="hidden md:flex items-center space-x-8">

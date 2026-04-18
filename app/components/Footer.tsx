@@ -10,7 +10,7 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-white">圣恩中医诊所</h3>
+            <h3 className="text-lg font-semibold mb-4 text-white">Felicia Ho</h3>
             <p className="text-white">专业的中医治疗服务，为您的健康保驾护航。</p>
           </div>
           <div>
@@ -29,7 +29,7 @@ const Footer = () => {
           </div>
         </div>
         <div className="mt-8 border-t pt-4 text-center text-white" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
-          <p>&copy; 2026 圣恩中医诊所. 保留所有权利.</p>
+          <p>&copy; 2026 Felicia Ho. All rights reserved.</p>
         </div>
       </div>
     </footer>
