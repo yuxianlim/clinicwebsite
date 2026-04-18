@@ -119,8 +119,10 @@ const BookingModal = () => {
               type="date"
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none placeholder-gray-400"
-              style={{ color: formData.date ? '#1f2937' : '#9ca3af' }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none text-gray-900 placeholder-gray-400"
+              style={{ color: formData.date ? '#1f2937' : '#9ca3af', '--tw-ring-color': '#556B42' } as any}
+              onFocus={(e) => (e.target.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
+              onBlur={(e) => (e.target.style.boxShadow = '')}
               required
             />
           </div>
@@ -132,7 +134,10 @@ const BookingModal = () => {
                 setFormData({ ...formData, practitioner: e.target.value });
                 setSelectColor('text-slate-900');
               }}
-              className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none appearance-none ${selectColor}`}
+              className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm outline-none appearance-none ${selectColor}`}
+              style={{ '--tw-ring-color': '#556B42' } as any}
+              onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
+              onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
               required
             >
               <option value="" disabled>请选择医师</option>
@@ -149,7 +154,10 @@ const BookingModal = () => {
                 setFormData({ ...formData, time: e.target.value });
                 setTimeColor('text-slate-900');
               }}
-              className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-slate-500 focus:border-transparent outline-none appearance-none ${timeColor}`}
+              className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm outline-none appearance-none ${timeColor}`}
+              style={{ '--tw-ring-color': '#556B42' } as any}
+              onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
+              onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
               required
             >
               <option value="" disabled>选择时间</option>
@@ -165,7 +173,7 @@ const BookingModal = () => {
           </div>
           <div className="flex justify-end space-x-4 mt-6">
             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors">取消</button>
-            <button type="submit" className="px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-900 transition-colors">提交预约</button>
+            <button type="submit" style={{ backgroundColor: '#556B42' }} className="px-4 py-2 text-white rounded hover:opacity-90 transition-colors">提交预约</button>
           </div>
         </form>
       </div>
