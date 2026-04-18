@@ -7,13 +7,25 @@ const Hero = () => {
   const { isOpen: isModalOpen, setIsOpen: setIsModalOpen } = useBooking();
 
   return (
-    <section id="hero" className="h-screen flex items-center justify-center bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 text-white">
-      <div className="text-center">
-        <h1 className="text-5xl font-bold mb-4">欢迎来到我们的中医诊所</h1>
-        <p className="text-xl mb-8">专业的中医治疗服务，为您的健康保驾护航</p>
+    <section 
+      id="hero" 
+      className="h-[500px] flex items-center justify-center text-white relative overflow-hidden"
+      style={{
+        backgroundImage: 'url(/hero-bg.svg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Overlay for better text readability */}
+      <div className="absolute inset-0 bg-black/30"></div>
+      
+      <div className="text-center relative z-10">
+        <h1 className="text-6xl font-bold mb-6 tracking-tight">欢迎来到我们的中医诊所</h1>
+        <p className="text-2xl mb-10 font-light opacity-90">专业的中医治疗服务，为您的健康保驾护航</p>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-white text-slate-800 px-8 py-3 rounded-full font-semibold hover:bg-slate-100 transition"
+          className="bg-green-500 text-white px-10 py-4 rounded-full font-semibold hover:bg-green-600 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
         >
           预约挂号
         </button>
