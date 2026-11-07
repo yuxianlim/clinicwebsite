@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useBooking } from '@/app/context/BookingContext';
+import { findPatientByLastFour, normalizePhone } from '@/app/lib/clinicData';
 
 const practitioners = [
   { id: 1, name: '李医生' },
@@ -58,12 +59,14 @@ const BookingModal = () => {
     e.preventDefault();
     
     // Add appointment to context and localStorage
+    const patient = findPatientByLastFour(normalizePhone(formData.contact).slice(-4));
     addAppointment({
       name: formData.name,
       contact: formData.contact,
       date: formData.date,
       time: formData.time,
       practitioner: formData.practitioner,
+      ...(patient ? { patientId: patient.id } : {}),
     });
     
     // Reset form and close modal

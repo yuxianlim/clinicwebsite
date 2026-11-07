@@ -1,0 +1,148 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { hasClinicPermission, readClinicAuth } from '@/app/lib/clinicAuth';
+import { readAuditLog, type AuditEvent, type AuditModule } from '@/app/lib/auditLog';
+
+const modules: { value: 'all' | AuditModule; label: string }[] = [
+  { value: 'all', label: 'All activity' },
+  { value: 'appointments', label: 'Appointments' },
+  { value: 'check-in', label: 'Check-in' },
+  { value: 'payments', label: 'Payments' },
+  { value: 'ceu', label: 'CEU' },
+  { value: 'authentication', label: 'Authentication' },
+  { value: 'administration', label: 'Administration' },
+];
+
+export default function AuditLogViewer() {
+  const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [module, setModule] = useState<'all' | AuditModule>('all');
+  const [search, setSearch] = useState('');
+  const [authorized, setAuthorized] = useState(false);
+  const [chainValid, setChainValid] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const refresh = async () => {
+      setAuthorized(hasClinicPermission(readClinicAuth(), 'audit-log:read'));
+      try {
+        const auditLog = await readAuditLog();
+        setEvents(auditLog.events);
+        setChainValid(auditLog.chainValid);
+        setError('');
+      } catch {
+        setChainValid(false);
+        setError('The central audit table is unavailable. Check the server logs and database path.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 5000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const filteredEvents = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return events.filter((event) => {
+      const moduleMatches = module === 'all' || event.module === module;
+      const searchMatches = !normalizedSearch || [
+        event.eventId,
+        event.module,
+        event.actorId,
+        event.role,
+        event.action,
+        event.relatedRecordId,
+        event.result,
+        event.sessionId ?? '',
+        event.safeChangeSummary,
+        event.previousHash,
+        event.entryHash,
+      ].some((value) => value.toLowerCase().includes(normalizedSearch));
+      return moduleMatches && searchMatches;
+    });
+  }, [events, module, search]);
+
+  if (!authorized) {
+    return (
+      <section className="rounded-xl border border-rose-900 bg-slate-900/70 p-6" role="alert">
+        <h3 className="text-lg font-semibold text-white">Access denied</h3>
+        <p className="mt-2 text-sm text-slate-300">An authenticated administrator with the audit-log read permission is required.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-5">
+      <div className="rounded-xl border border-amber-700/60 bg-amber-950/30 p-4 text-sm text-amber-100">
+        Verify Chain provides tamper evidence only. It does not replace access control, secure storage, monitoring, backups, or compliance procedures. This project&apos;s administrator sign-in is still a demo flow; protect the audit API with production authentication before deployment.
+      </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h3 className="text-xl font-semibold text-white">Central audit activity</h3>
+          <p className="mt-1 text-sm text-slate-400">Appointment, check-in, payment, CEU, and authentication events. Verification values and payment details are not included.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-sm">
+          <span role="status" aria-live="polite" className={chainValid ? 'text-emerald-300' : 'text-rose-300'}>
+            Verify Chain: {chainValid ? 'Valid' : 'Failed'}
+          </span>
+          <span className="text-slate-400">{filteredEvents.length} events</span>
+        </div>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <select value={module} onChange={(event) => setModule(event.target.value as 'all' | AuditModule)} className="min-h-11 rounded-lg border border-slate-700 bg-slate-800 px-3 text-slate-100">
+          {modules.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search event, actor, action, record, or hash" className="min-h-11 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 text-slate-100 placeholder:text-slate-500" />
+      </div>
+      {error ? <p className="rounded-lg border border-rose-900 bg-rose-950/30 p-4 text-sm text-rose-200">{error}</p> : null}
+      {loading ? <p className="py-8 text-center text-sm text-slate-400">Loading audit events...</p> : filteredEvents.length ? (
+        <div className="overflow-x-auto rounded-xl border border-slate-700">
+          <table className="w-full min-w-[1500px] text-left text-sm">
+            <thead className="bg-slate-800 text-slate-300">
+              <tr>
+                <th className="px-4 py-3 font-semibold">UTC date/time</th>
+                <th className="px-4 py-3 font-semibold">Event ID</th>
+                <th className="px-4 py-3 font-semibold">Module</th>
+                <th className="px-4 py-3 font-semibold">User / service ID</th>
+                <th className="px-4 py-3 font-semibold">Role</th>
+                <th className="px-4 py-3 font-semibold">Action</th>
+                <th className="px-4 py-3 font-semibold">Related record ID</th>
+                <th className="px-4 py-3 font-semibold">Result</th>
+                <th className="px-4 py-3 font-semibold">Session ID</th>
+                <th className="px-4 py-3 font-semibold">Safe change summary</th>
+                <th className="px-4 py-3 font-semibold">Previous Hash</th>
+                <th className="px-4 py-3 font-semibold">Entry Hash</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {filteredEvents.map((event) => (
+                <tr key={event.eventId} className="bg-slate-900/50 text-slate-200">
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-400">{event.occurredAt}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{event.eventId}</td>
+                  <td className="px-4 py-3">{event.module}</td>
+                  <td className="px-4 py-3">{event.actorId}</td>
+                  <td className="px-4 py-3">{event.role}</td>
+                  <td className="px-4 py-3">{event.action}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{event.relatedRecordId}</td>
+                  <td className="px-4 py-3"><span className={event.result === 'success' ? 'text-emerald-300' : event.result === 'denied' || event.result === 'pending' ? 'text-amber-300' : 'text-rose-300'}>{event.result}</span></td>
+                  <td className="px-4 py-3 font-mono text-xs">{event.sessionId ?? 'N/A'}</td>
+                  <td className="max-w-xs whitespace-normal px-4 py-3">{event.safeChangeSummary}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{event.previousHash}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{event.entryHash}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-5 py-12 text-center">
+          <p className="font-medium text-white">No audit events found</p>
+          <p className="mt-2 text-sm text-slate-400">Clinic activity will appear here as it is recorded.</p>
+        </div>
+      )}
+    </section>
+  );
+}

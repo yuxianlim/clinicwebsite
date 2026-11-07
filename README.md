@@ -44,6 +44,29 @@ npm run build
 npm start
 ```
 
+## Audit log
+
+Clinic activity is written to the server-side SQLite `audit_log` table at `.data/clinic-audit.sqlite` by default. Set `AUDIT_LOG_DB_PATH` to choose another persistent path. The database directory is ignored by Git. Entries are append-only, protected from updates and deletes by SQLite triggers, and each entry's SHA-256 hash includes the previous entry hash, beginning with `GENESIS`. The portal verifies the full chain in sequence.
+
+Chain verification provides tamper evidence only. It does not replace access control, secure storage, monitoring, backups, or compliance procedures.
+
+The log records appointment creation, kiosk verification/check-in outcomes, CEU payment setup and client-reported outcomes, administrator sign-in attempts, and denied audit-log reads. Event actions and summaries are selected on the server; new browser events do not include credentials or browser session IDs. Verification inputs, contact details, card data, and medical details are not event fields. Payment confirmation and CEU enrollment events reported by the browser are not authoritative until verified by a Stripe webhook and a server-side enrollment system.
+
+To test locally, explicitly sign in through the demo administrator flow, create a booking, and try both a failed and successful kiosk verification using fictional test data. Open Administration / Security to see the connected SQLite-backed table and `Verify Chain`. A request to `GET /api/audit-log` without the administrator cookie should return `403`; update/delete attempts against `audit_log` should be rejected by its SQLite triggers. To test tamper detection, use a disposable copy of the database, bypass a trigger, change or delete an earlier row, and confirm the verifier reports Failed. Never test tampering against the working audit database.
+
+This prototype does not implement appointment rescheduling/cancellation, real patient authentication, a membership-ID scanner, persistent CEU enrollment, certificate issuance, Stripe webhooks, or functional administrative/staff/patient record changes. The corresponding change/certificate event types are reserved for those workflows; no such change or certificate is claimed to have occurred.
+
+The SQLite-backed audit service requires Node.js 22.13 or newer. Production deployments must mount persistent storage for the database. For multiple application instances, use a shared database service instead of local SQLite storage.
+
+Configure these server-only variables for production administrator access:
+
+- `CLINIC_ADMIN_EMAIL`
+- `CLINIC_ADMIN_PASSWORD`
+- `CLINIC_SESSION_SECRET` (use a randomly generated secret of at least 32 bytes)
+- `AUDIT_LOG_DB_PATH` (optional)
+
+The local development administrator sign-in remains a mock. Production sign-in fails closed unless the credentials and session secret are configured. Payment success events currently reflect the CEU client confirmation flow; verify payments from Stripe webhooks before treating those entries as authoritative.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
