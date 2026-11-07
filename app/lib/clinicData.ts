@@ -8,6 +8,14 @@ export interface Patient {
   visitHistory: { date: string; treatment: string; practitioner: string }[];
 }
 
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: string;
+  hours: string;
+  status: string;
+}
+
 export const patients: Patient[] = [
   {
     firstName: 'Mina',
@@ -51,6 +59,12 @@ export const patients: Patient[] = [
     phone: '(408) 555-8888',
     visitHistory: [],
   },
+];
+
+export const initialStaff: StaffMember[] = [
+  { id: 'STAFF-DR-LI', name: 'Dr. Li', role: 'Lead Practitioner', hours: '9:00 - 18:00', status: 'On duty' },
+  { id: 'STAFF-MAYA', name: 'Maya', role: 'Reception', hours: '8:30 - 16:30', status: 'On duty' },
+  { id: 'STAFF-JIN', name: 'Jin', role: 'Herbal Specialist', hours: '10:00 - 17:00', status: 'Break' },
 ];
 
 export const normalizePhone = (value: string) => value.replace(/\D/g, '');

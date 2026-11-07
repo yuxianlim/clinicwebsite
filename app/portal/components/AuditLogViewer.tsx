@@ -77,7 +77,7 @@ export default function AuditLogViewer() {
   return (
     <section className="space-y-5">
       <div className="rounded-xl border border-amber-700/60 bg-amber-950/30 p-4 text-sm text-amber-100">
-        Verify Chain provides tamper evidence only. It does not replace access control, secure storage, monitoring, backups, or compliance procedures. This project&apos;s administrator sign-in is still a demo flow; protect the audit API with production authentication before deployment.
+        Verify Chain provides tamper evidence only. It does not replace access control, secure storage, monitoring, backups, or compliance procedures. Administrator sign-in is a demo flow in development; production requires configured server-side credentials and a session secret.
       </div>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>

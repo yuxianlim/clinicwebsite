@@ -6,23 +6,8 @@ import { clinicSessionCookieName, verifyAdminSession } from '@/app/lib/serverCli
 export const runtime = 'nodejs';
 
 const clientActions: Partial<Record<AuditModule, string[]>> = {
-  appointments: ['Appointment created', 'Appointment changed', 'Appointment change denied'],
-  'check-in': [
-    'Patient verification succeeded',
-    'Patient verification failed',
-    'Appointment lookup failed',
-    'Patient checked in',
-    'Check-in rejected',
-    'Duplicate check-in prevented',
-  ],
-  payments: [
-    'CEU payment failed',
-    'CEU payment succeeded',
-    'CEU payment pending',
-    'CEU payment outcome unknown',
-  ],
-  ceu: ['CEU enrollment reported'],
-  authentication: ['Demo patient session started', 'Demo login input rejected'],
+  appointments: ['Appointment changed', 'Appointment change denied'],
+  administration: ['Administrative change recorded', 'Administrative change denied'],
 };
 const results: AuditResult[] = ['success', 'denied', 'failed', 'pending'];
 const safeFixedReferences = new Set([
@@ -62,6 +47,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies();
+  const session = verifyAdminSession(cookieStore.get(clinicSessionCookieName)?.value);
+  if (!session) {
+    return Response.json({ error: 'Administrator audit permission required.' }, { status: 403 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -98,7 +89,7 @@ export async function POST(request: Request) {
       action,
       relatedRecordId,
       result: result as AuditResult,
-      sessionId: null,
+      sessionId: session.sessionId,
     });
     return Response.json({ event: saved }, { status: 201 });
   } catch {

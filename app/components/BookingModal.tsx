@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useBooking } from '@/app/context/BookingContext';
-import { findPatientByLastFour, normalizePhone } from '@/app/lib/clinicData';
+import type { Appointment } from '@/app/context/BookingContext';
 
 const practitioners = [
   { id: 1, name: '李医生' },
@@ -23,6 +23,45 @@ const BookingModal = () => {
   });
   const [selectColor, setSelectColor] = useState('text-slate-400');
   const [timeColor, setTimeColor] = useState('text-slate-400');
+  const [unavailableTimes, setUnavailableTimes] = useState<string[]>([]);
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [submissionError, setSubmissionError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !formData.date || !formData.practitioner) {
+      setUnavailableTimes([]);
+      setAvailabilityError('');
+      return;
+    }
+
+    const controller = new AbortController();
+    const query = new URLSearchParams({
+      date: formData.date,
+      practitioner: formData.practitioner,
+    });
+    void fetch(`/api/appointments?${query}`, { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json() as { unavailableTimes?: string[]; error?: string };
+        if (!response.ok) throw new Error(data.error ?? 'Appointment availability is temporarily unavailable.');
+        setUnavailableTimes(Array.isArray(data.unavailableTimes) ? data.unavailableTimes : []);
+        setAvailabilityError('');
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setAvailabilityError(error instanceof Error ? error.message : 'Appointment availability is temporarily unavailable.');
+      });
+
+    return () => controller.abort();
+  }, [isOpen, formData.date, formData.practitioner]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSubmissionError('');
+      setSuccessMessage('');
+    }
+  }, [isOpen]);
 
   // Generate time slots from 9 AM to 5:30 PM in 30-minute increments
   const generateTimeSlots = () => {
@@ -52,32 +91,37 @@ const BookingModal = () => {
     const appointments = getAppointmentsByDate(formData.date);
     return appointments.some(
       (apt) => apt.time === time && apt.practitioner === formData.practitioner
-    );
+    ) || unavailableTimes.includes(time);
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
-    // Add appointment to context and localStorage
-    const patient = findPatientByLastFour(normalizePhone(formData.contact).slice(-4));
-    addAppointment({
-      name: formData.name,
-      contact: formData.contact,
-      date: formData.date,
-      time: formData.time,
-      practitioner: formData.practitioner,
-      ...(patient ? { patientId: patient.id } : {}),
-    });
-    
-    // Reset form and close modal
-    setFormData({
-      name: '',
-      contact: '',
-      date: '',
-      time: '',
-      practitioner: '',
-    });
-    onClose();
+    setSubmissionError('');
+    setSuccessMessage('');
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const data = await response.json() as { appointment?: Appointment; error?: string };
+      if (!response.ok) {
+        if (response.status === 409) {
+          setUnavailableTimes((times) => [...new Set([...times, formData.time])]);
+        }
+        throw new Error(data.error ?? 'Your appointment could not be saved. Please try again later.');
+      }
+      if (!data.appointment?.id) throw new Error('The server returned an invalid appointment confirmation.');
+      addAppointment(data.appointment);
+      setUnavailableTimes((times) => [...new Set([...times, data.appointment!.time])]);
+      setFormData({ name: '', contact: '', date: '', time: '', practitioner: '' });
+      setSuccessMessage('预约已提交。Your appointment has been saved.');
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : 'Your appointment could not be saved. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -94,6 +138,9 @@ const BookingModal = () => {
             ×
           </button>
         </div>
+        {successMessage ? <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{successMessage}</p> : null}
+        {submissionError ? <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{submissionError}</p> : null}
+        {availabilityError ? <p role="status" className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">{availabilityError} Submission will still be checked securely by the server.</p> : null}
         <form onSubmit={handleSubmit} className="space-y-4" onClick={(e) => e.stopPropagation()}>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
@@ -120,6 +167,7 @@ const BookingModal = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">预约日期 *</label>
             <input
               type="date"
+              min={new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())}
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none text-gray-900 placeholder-gray-400"
@@ -176,7 +224,7 @@ const BookingModal = () => {
           </div>
           <div className="flex justify-end space-x-4 mt-6">
             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors">取消</button>
-            <button type="submit" style={{ backgroundColor: '#556B42' }} className="px-4 py-2 text-white rounded hover:opacity-90 transition-colors">提交预约</button>
+            <button type="submit" disabled={isSubmitting} style={{ backgroundColor: '#556B42' }} className="px-4 py-2 text-white rounded hover:opacity-90 transition-colors disabled:cursor-wait disabled:opacity-60">{isSubmitting ? '正在提交…' : '提交预约'}</button>
           </div>
         </form>
       </div>

@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import Stripe from 'stripe';
-import { recordServerAuditEvent } from '@/app/lib/auditStore.server';
+import { createPendingCeuEnrollment, recordServerAuditEvent } from '@/app/lib/auditStore.server';
 
 const topics = [
   { id: 'fall-prevention', title: 'Fall Prevention', amount: 9500 },
@@ -9,23 +10,43 @@ const topics = [
 
 export async function POST(req: Request) {
   let relatedRecordId = 'ceu-payment-setup';
+  let body: unknown;
   try {
-    const body = await req.json();
-    const topicId = body?.topicId;
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Payment registration details are invalid.' }, { status: 400 });
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return Response.json({ error: 'Payment registration details are invalid.' }, { status: 400 });
+  }
 
-    if (!topicId) {
-      recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup failed', relatedRecordId, result: 'failed', sessionId: null });
-      return new Response(JSON.stringify({ error: 'Missing topicId' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-    }
+  const data = body as { topicId?: unknown; name?: unknown; email?: unknown };
+  const topicId = typeof data.topicId === 'string' ? data.topicId : '';
+  const learnerName = typeof data.name === 'string' ? data.name.trim() : '';
+  const learnerEmail = typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+  const topic = topics.find((item) => item.id === topicId);
+  if (
+    !topic
+    || learnerName.length < 1
+    || learnerName.length > 100
+    || /[\u0000-\u001f\u007f]/.test(learnerName)
+    || learnerEmail.length > 254
+    || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(learnerEmail)
+  ) {
+    recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup failed', relatedRecordId: topic?.id ?? relatedRecordId, result: 'denied', sessionId: null });
+    return Response.json({ error: 'Enter a valid name and email, then choose a CEU topic.' }, { status: 400 });
+  }
+  relatedRecordId = topic.id;
 
-    const topic = topics.find((item) => item.id === topicId);
-    if (!topic) {
-      recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup failed', relatedRecordId, result: 'failed', sessionId: null });
-      return new Response(JSON.stringify({ error: 'Invalid topic selected' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-    }
-    relatedRecordId = topic.id;
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) {
+    recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup failed', relatedRecordId, result: 'failed', sessionId: null });
+    return Response.json({ error: 'Payment is temporarily unavailable. Please try again later.' }, { status: 503 });
+  }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  try {
+    const registrationId = randomUUID();
+    const stripe = new Stripe(secretKey, {
       apiVersion: '2026-06-24.dahlia',
     });
 
@@ -36,20 +57,40 @@ export async function POST(req: Request) {
       metadata: {
         topicId: topic.id,
         topicTitle: topic.title,
+        registrationId,
       },
     });
+    if (!paymentIntent.client_secret) {
+      console.error('Stripe created a CEU PaymentIntent without a client secret.');
+      return Response.json({ error: 'Payment could not be started. Please try again later.' }, { status: 503 });
+    }
+
+    try {
+      createPendingCeuEnrollment({
+        registrationId,
+        paymentIntentId: paymentIntent.id,
+        topicId: topic.id,
+        learnerName,
+        learnerEmail,
+      });
+    } catch {
+      console.error('Pending CEU enrollment could not be recorded.');
+      try {
+        await stripe.paymentIntents.cancel(paymentIntent.id);
+      } catch {
+        console.error('Unissued CEU PaymentIntent could not be canceled.');
+      }
+      recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup failed', relatedRecordId, result: 'failed', sessionId: null });
+      return Response.json({ error: 'Registration could not be saved. Please try again later.' }, { status: 503 });
+    }
 
     recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup succeeded', relatedRecordId, result: 'pending', sessionId: null });
 
-    return new Response(JSON.stringify({ clientSecret: paymentIntent.client_secret }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+    return Response.json({ clientSecret: paymentIntent.client_secret }, {
+      headers: { 'Cache-Control': 'no-store' },
     });
-  } catch (error) {
+  } catch {
     recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup failed', relatedRecordId, result: 'failed', sessionId: null });
-    return new Response(JSON.stringify({ error: 'Stripe payment intent creation failed' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ error: 'Payment could not be started. Please try again later.' }, { status: 503 });
   }
 }

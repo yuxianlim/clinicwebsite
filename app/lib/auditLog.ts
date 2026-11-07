@@ -16,25 +16,6 @@ export interface AuditEvent {
   entryHash: string;
 }
 
-export const recordAuditEvent = async (event: {
-  module: AuditModule;
-  action: string;
-  relatedRecordId: string;
-  result: AuditResult;
-}) => {
-  try {
-    const response = await fetch('/api/audit-log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(event),
-      keepalive: true,
-    });
-    if (!response.ok) console.error('Central audit event was rejected by the server.');
-  } catch {
-    console.error('Central audit service could not be reached.');
-  }
-};
-
 export const readAuditLog = async (): Promise<{ events: AuditEvent[]; chainValid: boolean }> => {
   const response = await fetch('/api/audit-log?limit=500', { cache: 'no-store' });
   if (!response.ok) throw new Error('Unable to load audit events.');

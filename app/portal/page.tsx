@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useBooking } from '@/app/context/BookingContext';
-import { patients } from '@/app/lib/clinicData';
 import { hasClinicPermission, readClinicAuth, type ClinicAuthSession } from '@/app/lib/clinicAuth';
 import AuditLogViewer from './components/AuditLogViewer';
+import ClinicRecordsManager from './components/ClinicRecordsManager';
+import SystemStatusViewer from './components/SystemStatusViewer';
 
 const sections = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -13,6 +13,7 @@ const sections = [
   { id: 'billing', label: 'Billing & Payments' },
   { id: 'staff', label: 'Staff Management' },
   { id: 'audit', label: 'Administration / Security' },
+  { id: 'system-status', label: 'Development / System Status' },
 ] as const;
 
 type SectionId = (typeof sections)[number]['id'];
@@ -32,12 +33,6 @@ const notifications = [
   'New consent forms uploaded for pediatric visits.',
 ];
 
-const staff = [
-  { name: 'Dr. Li', role: 'Lead Practitioner', hours: '9:00 - 18:00', status: 'On duty' },
-  { name: 'Maya', role: 'Reception', hours: '8:30 - 16:30', status: 'On duty' },
-  { name: 'Jin', role: 'Herbal Specialist', hours: '10:00 - 17:00', status: 'Break' },
-];
-
 const billingItems = [
   { title: 'Consultation fees', amount: '$95' },
   { title: 'Treatment charges', amount: '$140' },
@@ -53,12 +48,10 @@ const billingItems = [
 ];
 
 export default function PortalPage() {
-  const [activeSection, setActiveSection] = useState<SectionId>('dashboard');
-  const [patientQuery, setPatientQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'firstName' | 'lastName' | 'membershipId'>('lastName');
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(patients[0]?.id ?? null);
+  const [activeSection, setActiveSection] = useState<SectionId>(
+    process.env.NODE_ENV === 'development' ? 'system-status' : 'dashboard',
+  );
   const [authSession, setAuthSession] = useState<ClinicAuthSession | null>(null);
-  const { appointments: bookedAppointments } = useBooking();
 
   useEffect(() => {
     setAuthSession(readClinicAuth());
@@ -72,19 +65,6 @@ export default function PortalPage() {
     }
   }, [activeSection, canReadAuditLog]);
 
-  const filteredPatients = [...patients]
-    .filter((patient) => {
-      const search = patientQuery.toLowerCase();
-      return [patient.firstName, patient.lastName, patient.id, patient.status].some((value) => value.toLowerCase().includes(search));
-    })
-    .sort((a, b) => {
-      if (sortBy === 'firstName') return a.firstName.localeCompare(b.firstName);
-      if (sortBy === 'membershipId') return a.id.localeCompare(b.id);
-      return a.lastName.localeCompare(b.lastName);
-    });
-
-  const selectedPatient = filteredPatients.find((patient) => patient.id === selectedPatientId) ?? filteredPatients[0] ?? null;
-
   const renderContent = () => {
     switch (activeSection) {
       case 'audit':
@@ -94,131 +74,17 @@ export default function PortalPage() {
             <p className="mt-2 text-sm text-slate-300">An authenticated administrator with the audit-log read permission is required.</p>
           </div>
         );
+      case 'system-status':
+        return canReadAuditLog ? <SystemStatusViewer /> : (
+          <div className="rounded-xl border border-rose-900 bg-slate-900/70 p-6" role="alert">
+            <h2 className="text-xl font-semibold text-white">Access denied</h2>
+            <p className="mt-2 text-sm text-slate-300">An authenticated administrator with the audit-log read permission is required.</p>
+          </div>
+        );
       case 'patients':
-        return (
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-semibold text-white">Patient Management</h2>
-                  <p className="text-sm text-slate-400">Register patients and keep records organized in one place.</p>
-                </div>
-                <button className="rounded-lg bg-[#556B42] px-4 py-2 text-sm font-semibold text-white">Register patient</button>
-              </div>
-              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <input
-                  value={patientQuery}
-                  onChange={(event) => setPatientQuery(event.target.value)}
-                  placeholder="Search patients by name or membership ID"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-[#556B42] lg:max-w-md"
-                />
-                <select
-                  value={sortBy}
-                  onChange={(event) => setSortBy(event.target.value as 'firstName' | 'lastName' | 'membershipId')}
-                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-                >
-                  <option value="lastName">Sort by last name</option>
-                  <option value="firstName">Sort by first name</option>
-                  <option value="membershipId">Sort by membership ID</option>
-                </select>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                {filteredPatients.map((patient) => (
-                  <button
-                    key={patient.id}
-                    onClick={() => setSelectedPatientId(patient.id)}
-                    className={`rounded-xl border p-4 text-left transition ${selectedPatientId === patient.id ? 'border-[#556B42] bg-[#556B42]/20' : 'border-slate-700 bg-slate-800/80 hover:border-slate-500'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-white">{patient.firstName} {patient.lastName}</p>
-                        <p className="text-sm text-slate-400">{patient.id}</p>
-                      </div>
-                      <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300">{patient.status}</span>
-                    </div>
-                    <div className="mt-4 grid gap-2 text-sm text-slate-300">
-                      <div>Last visit: {patient.lastVisit}</div>
-                      <div>Phone: {patient.phone}</div>
-                      <div>QR check-in: Ready</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6">
-              <h3 className="text-lg font-semibold text-white">Selected patient details</h3>
-              {selectedPatient ? (
-                <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_0.9fr]">
-                  <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-4">
-                    <p className="font-semibold text-white">{selectedPatient.firstName} {selectedPatient.lastName}</p>
-                    <p className="mt-1 text-sm text-slate-400">Membership ID: {selectedPatient.id}</p>
-                    <div className="mt-4 space-y-2 text-sm text-slate-300">
-                      <div>Phone: {selectedPatient.phone}</div>
-                      <div>Status: {selectedPatient.status}</div>
-                      <div>Last visit: {selectedPatient.lastVisit}</div>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-4">
-                    <p className="font-semibold text-white">Visit history</p>
-                    <ul className="mt-3 space-y-3 text-sm text-slate-300">
-                      {selectedPatient.visitHistory.map((visit) => (
-                        <li key={`${visit.date}-${visit.treatment}`} className="rounded-lg bg-slate-900/60 px-3 py-2">
-                          <div className="font-medium text-white">{visit.date}</div>
-                          <div>{visit.treatment}</div>
-                          <div className="text-slate-400">Practitioner: {visit.practitioner}</div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-3 text-sm text-slate-400">No matching patient found.</p>
-              )}
-            </div>
-          </div>
-        );
+        return <ClinicRecordsManager kind="patients" />;
       case 'appointments':
-        return (
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-semibold text-white">Appointment Management</h2>
-                  <p className="text-sm text-slate-400">Book online, manage walk-ins, and keep waitlists under control.</p>
-                </div>
-                <button className="rounded-lg bg-[#556B42] px-4 py-2 text-sm font-semibold text-white">New booking</button>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-4">
-                  <h3 className="font-semibold text-white">Today&apos;s schedule</h3>
-                  {bookedAppointments.length > 0 ? (
-                    <ul className="mt-3 space-y-2 text-sm text-slate-300">
-                      {bookedAppointments.map((item) => (
-                        <li key={item.id} className="flex flex-col gap-1 rounded-lg bg-slate-900/60 px-3 py-2 md:flex-row md:items-center md:justify-between">
-                          <span>{item.name} • {item.date} • {item.time}</span>
-                          <span className={item.checkedInAt ? 'text-emerald-300' : 'text-slate-400'}>
-                            {item.practitioner} • {item.checkedInAt ? 'Checked in' : 'Not checked in'}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-3 text-sm text-slate-400">No bookings have been submitted yet.</p>
-                  )}
-                </div>
-                <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-4">
-                  <h3 className="font-semibold text-white">Operational tools</h3>
-                  <ul className="mt-3 space-y-2 text-sm text-slate-300">
-                    <li>• Online booking and walk-in registration</li>
-                    <li>• Practitioner availability and calendar view</li>
-                    <li>• Waitlist, reschedule, cancellation, and recurring appointments</li>
-                    <li>• Reminder delivery for incoming visits</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+        return <ClinicRecordsManager kind="appointments" />;
       case 'billing':
         return (
           <div className="space-y-6">
@@ -249,29 +115,7 @@ export default function PortalPage() {
           </div>
         );
       case 'staff':
-        return (
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold text-white">Staff Management</h2>
-                <p className="text-sm text-slate-400">Coordinate roles, attendance, leave, and payroll readiness.</p>
-              </div>
-              <button className="rounded-lg bg-[#556B42] px-4 py-2 text-sm font-semibold text-white">Add staff</button>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-3">
-              {staff.map((person) => (
-                <div key={person.name} className="rounded-xl border border-slate-700 bg-slate-800/80 p-4">
-                  <p className="font-semibold text-white">{person.name}</p>
-                  <p className="mt-1 text-sm text-slate-400">{person.role}</p>
-                  <div className="mt-4 space-y-1 text-sm text-slate-300">
-                    <div>Hours: {person.hours}</div>
-                    <div>Status: {person.status}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
+        return <ClinicRecordsManager kind="staff" />;
       case 'dashboard':
       default:
         return (
@@ -318,7 +162,7 @@ export default function PortalPage() {
             <p className="mt-2 text-sm text-slate-400">A lightweight staff workspace for appointments, patients, and teams.</p>
           </div>
           <nav className="space-y-2">
-            {sections.filter((section) => section.id !== 'audit' || canReadAuditLog).map((section) => (
+            {sections.filter((section) => (section.id !== 'audit' && section.id !== 'system-status') || canReadAuditLog).map((section) => (
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}

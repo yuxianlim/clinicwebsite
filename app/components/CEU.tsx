@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { CardElement, Elements, useStripe, useElements } from '@stripe/react-stripe-js';
-import { recordAuditEvent } from '@/app/lib/auditLog';
 
 type Topic = {
   id: string;
@@ -81,7 +80,11 @@ const PaymentForm = ({
       const response = await fetch('/api/stripe/payment_intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId: selectedTopicData.id }),
+        body: JSON.stringify({
+          topicId: selectedTopicData.id,
+          name: paymentValues.name,
+          email: paymentValues.email,
+        }),
       });
 
       const data = await response.json();
@@ -101,48 +104,51 @@ const PaymentForm = ({
       });
 
       if (result.error) {
-        void recordAuditEvent({
-          module: 'payments',
-          action: 'CEU payment failed',
-          relatedRecordId: selectedTopicData.id,
-          result: 'failed',
-        });
         setStatusMessage(result.error.message ?? 'Payment failed. Please try again.');
         return;
       }
 
-      if (result.paymentIntent?.status === 'succeeded') {
-        void recordAuditEvent({
-          module: 'payments',
-          action: 'CEU payment succeeded',
-          relatedRecordId: selectedTopicData.id,
-          result: 'success',
-        });
-        void recordAuditEvent({
-          module: 'ceu',
-          action: 'CEU enrollment reported',
-          relatedRecordId: selectedTopicData.id,
-          result: 'success',
-        });
-        setStatusMessage('Payment succeeded! Your registration is confirmed.');
+      if (!result.paymentIntent) {
+        setStatusMessage('The payment outcome could not be confirmed. Please check your payment status before retrying.');
+        return;
+      }
+
+      let serverVerified = false;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const statusResponse = await fetch(
+          `/api/stripe/payment_status?paymentIntentId=${encodeURIComponent(result.paymentIntent.id)}`,
+          { cache: 'no-store' },
+        );
+        if (statusResponse.ok) {
+          const paymentStatus = await statusResponse.json() as {
+            webhookVerified?: boolean;
+            verifiedResult?: string | null;
+            registrationStatus?: 'pending_payment' | 'enrolled' | null;
+          };
+          if (paymentStatus.webhookVerified && paymentStatus.verifiedResult === 'success') {
+            if (paymentStatus.registrationStatus !== 'enrolled') {
+              setStatusMessage('Payment was verified, but enrollment is not yet confirmed. Do not retry; contact the clinic.');
+              return;
+            }
+            serverVerified = true;
+            break;
+          }
+          if (paymentStatus.webhookVerified && paymentStatus.verifiedResult !== 'success') {
+            setStatusMessage('The server could not confirm a successful payment. Please contact the clinic before retrying.');
+            return;
+          }
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      }
+
+      if (serverVerified) {
+        setStatusMessage('Payment and CEU enrollment are confirmed. Certificate issuance is not available yet because course completion or attendance cannot be verified by this system.');
         setPaymentValues(initialPaymentValues);
         elements.getElement(CardElement)?.clear();
       } else {
-        void recordAuditEvent({
-          module: 'payments',
-          action: 'CEU payment pending',
-          relatedRecordId: selectedTopicData.id,
-          result: 'pending',
-        });
-        setStatusMessage('Payment is still processing. Check your payment status before trying again.');
+        setStatusMessage('Stripe accepted the payment request, but server verification is still pending. Do not retry yet; contact the clinic if this message persists.');
       }
     } catch {
-      void recordAuditEvent({
-        module: 'payments',
-        action: 'CEU payment outcome unknown',
-        relatedRecordId: selectedTopicData.id,
-        result: 'failed',
-      });
       setStatusMessage('The payment outcome could not be confirmed. Check your payment status before trying again.');
     } finally {
       setIsLoading(false);

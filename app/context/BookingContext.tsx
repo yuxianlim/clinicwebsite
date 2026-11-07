@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import { recordAuditEvent } from '@/app/lib/auditLog';
 
 export interface Appointment {
   id: string;
@@ -13,14 +12,15 @@ export interface Appointment {
   timestamp: number;
   patientId?: string;
   checkedInAt?: string;
+  status?: 'scheduled' | 'cancelled';
 }
 
 interface BookingContextType {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   appointments: Appointment[];
-  addAppointment: (appointment: Omit<Appointment, 'id' | 'timestamp'>) => void;
-  checkInAppointment: (appointmentId: string) => { ok: boolean; reason?: 'missing' | 'already-checked-in' };
+  addAppointment: (appointment: Appointment) => void;
+  syncAppointmentCheckIn: (appointmentId: string, checkedInAt: string) => void;
   getAppointmentsByDate: (date: string) => Appointment[];
 }
 
@@ -73,67 +73,25 @@ export const BookingProvider = ({ children }: { children: React.ReactNode }) => 
     };
   }, []);
 
-  const addAppointment = (appointment: Omit<Appointment, 'id' | 'timestamp'>) => {
-    const newAppointment: Appointment = {
-      ...appointment,
-      id: `${Date.now()}-${Math.random()}`,
-      timestamp: Date.now(),
-    };
-    
-    const updated = [...appointments, newAppointment];
+  const addAppointment = (appointment: Appointment) => {
+    const updated = [...appointments, appointment];
     setAppointments(updated);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    void recordAuditEvent({
-      module: 'appointments',
-      action: 'Appointment created',
-      relatedRecordId: newAppointment.id,
-      result: 'success',
-    });
     
-    // Dispatch custom event for real-time updates across tabs
     window.dispatchEvent(
-      new CustomEvent('appointmentAdded', { detail: newAppointment })
+      new CustomEvent('appointmentAdded', { detail: appointment })
     );
   };
 
-  const checkInAppointment = (appointmentId: string, actor = 'Patient kiosk') => {
+  const syncAppointmentCheckIn = (appointmentId: string, checkedInAt: string) => {
     const stored = localStorage.getItem(STORAGE_KEY);
     const currentAppointments: Appointment[] = stored ? JSON.parse(stored) : appointments;
-    const appointment = currentAppointments.find((item) => item.id === appointmentId);
-
-    if (!appointment) {
-      void recordAuditEvent({
-        module: 'check-in',
-        action: 'Check-in rejected',
-        relatedRecordId: appointmentId,
-        result: 'failed',
-      });
-      return { ok: false as const, reason: 'missing' as const };
-    }
-    if (appointment.checkedInAt) {
-      void recordAuditEvent({
-        module: 'check-in',
-        action: 'Duplicate check-in prevented',
-        relatedRecordId: appointmentId,
-        result: 'denied',
-      });
-      return { ok: false as const, reason: 'already-checked-in' as const };
-    }
-
-    const checkedInAt = new Date().toISOString();
     const updated = currentAppointments.map((item) =>
       item.id === appointmentId ? { ...item, checkedInAt } : item,
     );
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    void recordAuditEvent({
-      module: 'check-in',
-      action: 'Patient checked in',
-      relatedRecordId: appointmentId,
-      result: 'success',
-    });
     setAppointments(updated);
     window.dispatchEvent(new CustomEvent('appointmentCheckedIn', { detail: { appointmentId, checkedInAt } }));
-    return { ok: true as const };
   };
 
   const getAppointmentsByDate = (date: string) => {
@@ -147,7 +105,7 @@ export const BookingProvider = ({ children }: { children: React.ReactNode }) => 
         setIsOpen,
         appointments,
         addAppointment,
-        checkInAppointment,
+        syncAppointmentCheckIn,
         getAppointmentsByDate,
       }}
     >

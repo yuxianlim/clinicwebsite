@@ -1,30 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { Appointment, useBooking } from '@/app/context/BookingContext';
-import { findPatientByLastFour, normalizePhone, Patient } from '@/app/lib/clinicData';
-import { recordAuditEvent } from '@/app/lib/auditLog';
+import { useBooking } from '@/app/context/BookingContext';
 
 type KioskStep = 'start' | 'phone' | 'scan' | 'confirm' | 'success';
 
-const getToday = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
+type KioskPatient = { id: string; name: string };
+type KioskAppointment = { id: string; date: string; time: string; practitioner: string };
 
-const patientMatchesAppointment = (patient: Patient, appointment: Appointment) => {
-  if (appointment.patientId) return appointment.patientId === patient.id;
-
-  return normalizePhone(appointment.contact) === normalizePhone(patient.phone)
-    && appointment.name.trim().toLowerCase() === `${patient.firstName} ${patient.lastName}`.toLowerCase();
+type KioskLookupResponse = {
+  patient?: KioskPatient;
+  appointment?: KioskAppointment;
+  checkInToken?: string;
+  error?: string;
 };
 
 export default function KioskClient() {
-  const { appointments, checkInAppointment } = useBooking();
+  const { syncAppointmentCheckIn } = useBooking();
   const [step, setStep] = useState<KioskStep>('start');
   const [lastFour, setLastFour] = useState('');
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [patient, setPatient] = useState<KioskPatient | null>(null);
+  const [appointment, setAppointment] = useState<KioskAppointment | null>(null);
+  const [checkInToken, setCheckInToken] = useState('');
   const [message, setMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -33,6 +30,7 @@ export default function KioskClient() {
     setLastFour('');
     setPatient(null);
     setAppointment(null);
+    setCheckInToken('');
     setMessage('');
     setIsSaving(false);
   };
@@ -42,53 +40,61 @@ export default function KioskClient() {
     setMessage('');
   };
 
-  const findTodaysAppointment = () => {
+  const findTodaysAppointment = async () => {
     const normalizedLastFour = lastFour.replace(/\D/g, '');
     if (normalizedLastFour.length !== 4) {
-      void recordAuditEvent({ module: 'check-in', action: 'Patient verification failed', relatedRecordId: 'patient-verification', result: 'denied' });
       setMessage('Enter exactly four digits from the phone number on your patient record.');
       return;
     }
 
-    const matchedPatient = findPatientByLastFour(normalizedLastFour);
-    if (!matchedPatient) {
-      void recordAuditEvent({ module: 'check-in', action: 'Patient verification failed', relatedRecordId: 'patient-verification', result: 'denied' });
-      setMessage('We could not verify those digits. Please see the front desk.');
-      return;
-    }
-
-    void recordAuditEvent({ module: 'check-in', action: 'Patient verification succeeded', relatedRecordId: 'patient-verification', result: 'success' });
-
-    const todaysAppointment = appointments.find(
-      (item) => item.date === getToday() && patientMatchesAppointment(matchedPatient, item),
-    );
-    if (!todaysAppointment) {
-      void recordAuditEvent({ module: 'check-in', action: 'Appointment lookup failed', relatedRecordId: 'appointment-lookup', result: 'failed' });
-      setMessage('No appointment was found for today. Please see the front desk.');
-      return;
-    }
-
-    setPatient(matchedPatient);
-    setAppointment(todaysAppointment);
+    setIsSaving(true);
     setMessage('');
-    setStep('confirm');
+    try {
+      const response = await fetch('/api/kiosk/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lastFour: normalizedLastFour }),
+      });
+      const data = await response.json() as KioskLookupResponse;
+      if (!response.ok || !data.patient || !data.appointment || !data.checkInToken) {
+        setMessage(data.error ?? 'We could not verify an appointment for today. Please see the front desk.');
+        return;
+      }
+      setPatient(data.patient);
+      setAppointment(data.appointment);
+      setCheckInToken(data.checkInToken);
+      setStep('confirm');
+    } catch {
+      setMessage('The appointment service is temporarily unavailable. Please see the front desk.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const confirmCheckIn = () => {
+  const confirmCheckIn = async () => {
     if (!appointment) return;
 
     setIsSaving(true);
-    const result = checkInAppointment(appointment.id);
-    if (!result.ok) {
+    setMessage('');
+    try {
+      const response = await fetch('/api/kiosk/check-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: appointment.id, checkInToken }),
+      });
+      const data = await response.json() as { checkedIn?: boolean; checkedInAt?: string; error?: string };
+      if (!response.ok || !data.checkedIn || !data.checkedInAt) {
+        setMessage(data.error ?? 'This appointment could not be checked in. Please see the front desk.');
+        setIsSaving(false);
+        return;
+      }
+      syncAppointmentCheckIn(appointment.id, data.checkedInAt);
+      setStep('success');
+      window.setTimeout(resetKiosk, 2500);
+    } catch {
       setIsSaving(false);
-      setMessage(result.reason === 'already-checked-in'
-        ? 'This appointment has already been checked in. Please see the front desk if you need help.'
-        : 'This appointment could not be found. Please see the front desk.');
-      return;
+      setMessage('Check-in is temporarily unavailable. Please see the front desk.');
     }
-
-    setStep('success');
-    window.setTimeout(resetKiosk, 2500);
   };
 
   return (
@@ -121,7 +127,7 @@ export default function KioskClient() {
                 <button onClick={() => setStep('scan')} className="min-h-36 rounded-2xl border-2 border-[#d0c5b3] bg-white/65 p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <span className="text-3xl" aria-hidden="true">▣</span>
                   <span className="mt-5 block text-xl font-semibold">Scan clinic membership ID</span>
-                  <span className="mt-2 block text-sm text-[#69766d]">Use the clinic scanner at this kiosk.</span>
+                  <span className="mt-2 block text-sm text-[#69766d]">This scanner is unavailable; please see the front desk.</span>
                 </button>
                 <button onClick={() => setMessage('Please bring your appointment details to the front desk for assistance.')} className="min-h-28 rounded-2xl border border-[#d0c5b3] bg-transparent p-5 text-left hover:bg-white/50">
                   <span className="block text-lg font-semibold">Need front desk assistance?</span>
@@ -146,7 +152,7 @@ export default function KioskClient() {
               {message && <p className="mt-4 rounded-xl border border-[#e0b7ad] bg-[#fff5f2] p-4 text-sm text-[#8a4437]">{message}</p>}
               <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                 <button onClick={resetKiosk} className="rounded-xl px-5 py-4 font-semibold text-[#53684a] hover:bg-[#f4f1e8]">Cancel</button>
-                <button onClick={findTodaysAppointment} className="rounded-xl bg-[#53684a] px-7 py-4 font-semibold text-white hover:bg-[#405437]">Find my appointment</button>
+                <button disabled={isSaving} onClick={findTodaysAppointment} className="rounded-xl bg-[#53684a] px-7 py-4 font-semibold text-white hover:bg-[#405437] disabled:cursor-wait disabled:opacity-60">{isSaving ? 'Searching...' : 'Find my appointment'}</button>
               </div>
             </div>
           )}
@@ -165,7 +171,7 @@ export default function KioskClient() {
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8a6b45]">Appointment found</p>
               <h2 className="mt-3 text-3xl font-semibold">Please confirm your check-in</h2>
               <div className="mt-8 grid gap-4 rounded-2xl bg-[#f4f1e8] p-6 sm:grid-cols-2">
-                <div><p className="text-sm text-[#69766d]">Patient</p><p className="mt-1 text-xl font-semibold">{patient.firstName} {patient.lastName}</p></div>
+                <div><p className="text-sm text-[#69766d]">Patient</p><p className="mt-1 text-xl font-semibold">{patient.name}</p></div>
                 <div><p className="text-sm text-[#69766d]">Patient ID</p><p className="mt-1 text-xl font-semibold">{patient.id}</p></div>
                 <div><p className="text-sm text-[#69766d]">Appointment time</p><p className="mt-1 text-xl font-semibold">{appointment.time}</p></div>
                 <div><p className="text-sm text-[#69766d]">Practitioner</p><p className="mt-1 text-xl font-semibold">{appointment.practitioner}</p></div>
@@ -182,7 +188,7 @@ export default function KioskClient() {
             <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-10 text-center shadow-sm">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#dce8d4] text-3xl text-[#53684a]" aria-hidden="true">✓</div>
               <h2 className="mt-6 text-3xl font-semibold">Check-in successful</h2>
-              <p className="mt-3 text-[#69766d]">Your care team has been notified. This kiosk will reset for the next patient.</p>
+              <p className="mt-3 text-[#69766d]">Your check-in has been recorded. This kiosk will reset for the next patient.</p>
             </div>
           )}
         </section>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { type ClinicAuthMethod, type ClinicAuthRole, type ClinicAuthSession } from '@/app/lib/clinicAuth';
-import { recordAuditEvent } from '@/app/lib/auditLog';
 
 interface ClinicAuthModalProps {
   isOpen: boolean;
@@ -47,12 +46,6 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
     setError('');
 
     if (method === 'email' && (!email || !password)) {
-      void recordAuditEvent({
-        module: 'authentication',
-        action: 'Demo login input rejected',
-        relatedRecordId: selectedRole === 'admin' ? 'admin-login' : 'patient-login',
-        result: 'denied',
-      });
       setError('Please enter your email and password.');
       return;
     }
@@ -97,12 +90,6 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
     if (selectedRole === 'admin') {
       router.push('/portal');
     } else {
-      void recordAuditEvent({
-        module: 'authentication',
-        action: 'Demo patient session started',
-        relatedRecordId: 'patient-login',
-        result: 'success',
-      });
       router.push('/');
     }
   };
@@ -196,7 +183,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
                 This second factor confirms your identity before you can continue as a {selectedRole}.
               </p>
             </div>
-              <button disabled={isAuthenticating} onClick={handleFaceVerification} className="w-full rounded-lg bg-[#556B42] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
+            <button disabled={isAuthenticating} onClick={handleFaceVerification} className="w-full rounded-lg bg-[#556B42] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
               {isAuthenticating ? 'Verifying...' : 'Complete face verification'}
             </button>
             <button onClick={() => setStep('method')} className="text-sm font-medium text-slate-600 hover:text-slate-800">

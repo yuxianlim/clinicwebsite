@@ -20,7 +20,7 @@ const Nav = () => {
   }, []);
 
   const isAdmin = authState?.authenticated && authState.role === 'admin' && authState.faceVerified;
-  const isLoggedIn = authState?.authenticated && authState.faceVerified;
+  const isLoggedIn = authState?.authenticated;
 
   const handleClinicAccess = () => {
     if (isAdmin) {
