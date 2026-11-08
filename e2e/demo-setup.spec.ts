@@ -93,6 +93,21 @@ test('one admin action connects fictional learner, kiosk, NFC and clinic billing
     await expect(staffPage.locator('body')).toHaveJSProperty('scrollWidth', 390);
   } finally { await staff.close(); }
 
+  // Same-day repeated treatments are separate visits and must render without key collisions.
+  for (let index = 0; index < 2; index++) {
+    expect((await context.request.post('/api/billing', { data: { action: 'complete-treatment', patientId: setup.billing.patientId, requestId: crypto.randomUUID() } })).status()).toBe(200);
+  }
+  const duplicateKeyErrors: string[] = [];
+  page.on('console', (message) => { if (message.type() === 'error' && message.text().includes('same key')) duplicateKeyErrors.push(message.text()); });
+  await page.goto('/portal');
+  const menu = page.getByRole('button', { name: /Workspace navigation/ });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole('navigation', { name: 'Workspace', exact: true }).getByRole('button', { name: 'Patient Management', exact: true }).click();
+  await page.getByLabel('Search patients', { exact: true }).fill(setup.billing.patientId);
+  await page.getByRole('button').filter({ hasText: 'Fictional Billing Patient' }).click();
+  await expect(page.getByText(/Demo completed follow-up visit · Demo clinic staff$/)).toHaveCount(3);
+  expect(duplicateKeyErrors).toEqual([]);
+
   await page.goto('/learn');
   await page.getByLabel('Email', { exact: true }).fill(setup.learner.email);
   await page.getByLabel('Password', { exact: true }).fill(setup.learner.password);

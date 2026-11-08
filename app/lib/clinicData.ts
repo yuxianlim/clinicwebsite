@@ -5,7 +5,7 @@ export interface Patient {
   status: string;
   lastVisit: string;
   phone: string;
-  visitHistory: { date: string; treatment: string; practitioner: string }[];
+  visitHistory: { date: string; treatment: string; practitioner: string; referenceId?: string }[];
 }
 
 export interface StaffMember {

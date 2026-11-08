@@ -177,7 +177,7 @@ export default function ClinicRecordsManager({ kind }: Props) {
                 <h3 className="font-semibold text-slate-900">Selected patient details</h3>
                 <p className="mt-2 text-sm text-slate-700">{selectedPatient.firstName} {selectedPatient.lastName} · {selectedPatient.id} · {selectedPatient.phone}</p>
                 <p className="text-sm text-slate-600">Visit history entries: {selectedPatient.visitHistory.length}</p>
-                {selectedPatient.visitHistory.map((visit) => <p key={`${visit.date}-${visit.treatment}`} className="mt-1 text-xs text-slate-600">{visit.date} · {visit.treatment} · {visit.practitioner}</p>)}
+                {selectedPatient.visitHistory.map((visit, index) => <p key={`${selectedPatient.id}:${visit.referenceId ? `visit:${visit.referenceId}` : `legacy:${index}`}`} className="mt-1 text-xs text-slate-600">{visit.date} · {visit.treatment} · {visit.practitioner}</p>)}
               </div>
             )}
           </section>
