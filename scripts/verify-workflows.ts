@@ -13,6 +13,10 @@ const workflowNames = {
   booking: "Public booking -> appointment state",
   kiosk: "Kiosk -> patient list and appointment state",
   patient: "Patient management -> durable records and audit",
+  staff: "Staff management -> durable records and audit",
+  appointment: "Appointment changes -> shared storage and audit",
+  connectivity: "Stripe test-mode API connectivity",
+  backup: "Database -> backups and recovery",
   setup: "CEU form -> Stripe PaymentIntent",
   audit: "Stripe.js outcome -> audit log",
   enrollment: "Verified payment -> CEU enrollment",
@@ -20,7 +24,7 @@ const workflowNames = {
 type SystemStatus = {
   environment: string;
   stripeMode?: string;
-  items: { name: string; status: string }[];
+  items: { name: string; status: string; lastTestedAt?: string }[];
 };
 type Patient = {
   id: string;
@@ -33,16 +37,18 @@ const main = async () => {
   const args = process.argv.slice(2);
   let address = "http://localhost:3000";
   let includeStripe = false;
+  let includeBackup = false;
   let resumeId = "";
   for (let index = 0; index < args.length; index++) {
     if (args[index] === "--stripe") includeStripe = true;
+    else if (args[index] === "--backup") includeBackup = true;
     else if (args[index] === "--url" && args[index + 1])
       address = args[++index];
     else if (args[index] === "--payment-intent" && args[index + 1])
       resumeId = args[++index];
     else
       throw new Error(
-        "Usage: npm run verify:workflows -- [--stripe] [--url http://localhost:3000] [--payment-intent pi_...]",
+        "Usage: npm run verify:workflows -- [--stripe] [--backup] [--url http://localhost:3000] [--payment-intent pi_...]",
       );
   }
   if (process.env.NODE_ENV === "production")
@@ -231,6 +237,44 @@ const main = async () => {
     )
       throw new Error("Check-in was not persisted.");
   }
+  if (!connected(status, workflowNames.staff)) {
+    console.log("Adding a clearly named development staff DIRECTORY record; this does not grant login access.");
+    const { staff } = await call<{ staff: { id: string } }>(
+      "/api/admin/staff", "POST", {
+        name: `Development Directory Check ${Date.now()}`,
+        role: "Development test record",
+        hours: "Test only; no scheduled hours",
+      }, true,
+    );
+    const saved = await call<{ staff: { id: string }[] }>("/api/admin/staff", "GET", undefined, true);
+    if (!saved.staff.some((item) => item.id === staff.id))
+      throw new Error("Staff directory addition was not durable.");
+  }
+  if (!connected(status, workflowNames.appointment)) {
+    console.log("Creating and canceling a separate fictional development appointment; existing appointments are not changed.");
+    const date = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+    const practitioner = "李医生";
+    const query = new URLSearchParams({ date, practitioner });
+    const { unavailableTimes } = await call<{ unavailableTimes: string[] }>(`/api/appointments?${query}`);
+    const time = Array.from({ length: 18 }, (_, index) => {
+      const hour = 9 + Math.floor(index / 2);
+      return `${hour > 12 ? hour - 12 : hour}:${index % 2 ? "30" : "00"} ${hour >= 12 ? "PM" : "AM"}`;
+    }).find((candidate) => !unavailableTimes.includes(candidate));
+    if (!time) throw new Error("No free slot is available for the separate appointment-change check.");
+    const { appointment } = await call<{ appointment: { id: string } }>("/api/appointments", "POST", {
+      name: "Development Appointment Check", contact: "4085550199", date, time, practitioner,
+    });
+    await call("/api/admin/appointments", "DELETE", { id: appointment.id }, true);
+    const saved = await call<{ appointments: { id: string; status: string }[] }>("/api/admin/appointments", "GET", undefined, true);
+    if (!saved.appointments.some((item) => item.id === appointment.id && item.status === "cancelled"))
+      throw new Error("Appointment cancellation was not durable.");
+    const released = await call<{ unavailableTimes: string[] }>(`/api/appointments?${query}`);
+    if (released.unavailableTimes.includes(time))
+      throw new Error("Cancellation did not release the development appointment slot.");
+  }
+  localNames.push(workflowNames.staff, workflowNames.appointment);
   const localReport = await call<SystemStatus>(
     "/api/system-status",
     "GET",
@@ -243,6 +287,16 @@ const main = async () => {
         `${name}: required durable/audit evidence is still missing.`,
       );
     console.log(`PASS: ${name}`);
+  }
+  if (includeBackup) {
+    const { backupSources, backupDirectory, createVerifiedBackup } = await import("../app/lib/databaseBackup.server");
+    const { receipt } = await createVerifiedBackup(backupSources(), backupDirectory());
+    const report = await call<SystemStatus>("/api/system-status", "GET", undefined, true);
+    const item = report.items.find((item) => item.name === workflowNames.backup);
+    if (item?.lastTestedAt !== receipt.checkedAt)
+      throw new Error("The application cannot see this backup receipt. Match database paths and CLINIC_BACKUP_DIR in the server and verifier environments.");
+    console.log("PASS: Local backup and isolated restore; snapshot checksums and audit chain verified.");
+    console.log("Managed disaster recovery remains incomplete: configure scheduling, protected encrypted off-host storage, retention and a separate-host recovery test.");
   }
   if (!includeStripe) {
     console.log(
@@ -259,6 +313,16 @@ const main = async () => {
     throw new Error(
       "The APPLICATION is not configured for sandbox payments. Pull the updated code and restart npm run dev with matching test keys before proceeding.",
     );
+  console.log("Running the protected sandbox create-and-cancel connectivity check; no payment is collected by this probe.");
+  await call("/api/system-status/stripe-test", "POST", undefined, true);
+  const stripeReport = await call<SystemStatus>("/api/system-status", "GET", undefined, true);
+  if (!connected(stripeReport, workflowNames.connectivity))
+    throw new Error("Stripe connectivity check did not produce a successful dashboard receipt.");
+  console.log(`PASS: ${workflowNames.connectivity}`);
+  if (!resumeId && [workflowNames.setup, workflowNames.audit, workflowNames.enrollment].every((name) => connected(stripeReport, name))) {
+    console.log("PASS: CEU setup, signed payment audit and enrollment already have evidence. No additional sandbox payment was created.");
+    return;
+  }
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: "2026-06-24.dahlia",
     timeout: 10_000,
@@ -371,7 +435,7 @@ const main = async () => {
         console.log(`PASS: ${name}`);
       }
       console.log(
-        "All six workflows have real application evidence. Fictional development records were retained for inspection.",
+        "All eight application workflows and the Stripe connectivity probe have evidence. Fictional development records were retained for inspection.",
       );
       return;
     }

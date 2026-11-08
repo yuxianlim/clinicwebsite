@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("patient registration, public booking and kiosk check-in persist through real UI/API paths", async ({
+test("patient registration, booking, kiosk, staff addition and appointment cancellation persist through real UI/API paths", async ({
   page,
   context,
 }) => {
@@ -121,6 +121,39 @@ test("patient registration, public booking and kiosk check-in persist through re
       (item: { id: string }) => item.id === appointment.id,
     ).checkedInAt,
   ).toBeTruthy();
+
+  await page.goto("/portal");
+  await page.getByRole("navigation", { name: "Workspace", exact: true })
+    .getByRole("button", { name: "Staff Management", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Development Staff Verification");
+  await page.getByLabel("Role", { exact: true }).fill("Development directory entry");
+  await page.getByLabel("Working hours", { exact: true }).fill("Test only");
+  const addedStaff = page.waitForResponse((response) =>
+    response.url().endsWith("/api/admin/staff") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Add staff", exact: true }).click();
+  expect((await addedStaff).status()).toBe(201);
+  await expect(page.getByRole("status")).toContainText("Staff record saved and audited.");
+  await expect(page.getByText("Development Staff Verification", { exact: true })).toBeVisible();
+
+  const cancelBooking = await context.request.post("/api/appointments", { data: {
+    name: "Development Cancellation Check", contact: "4085550198", date: today,
+    time: "9:30 AM", practitioner: "李医生",
+  } });
+  expect(cancelBooking.status()).toBe(201);
+  const cancellationId = (await cancelBooking.json()).appointment.id;
+  await page.getByRole("navigation", { name: "Workspace", exact: true })
+    .getByRole("button", { name: "Appointment Management", exact: true }).click();
+  const cancellationCard = page.getByRole("article").filter({ hasText: "Development Cancellation Check" });
+  const canceled = page.waitForResponse((response) =>
+    response.url().endsWith("/api/admin/appointments") && response.request().method() === "DELETE");
+  await cancellationCard.getByRole("button", { name: "Cancel appointment", exact: true }).click();
+  expect((await canceled).status()).toBe(200);
+  await expect(cancellationCard).toContainText("Canceled");
+  await expect(page.getByRole("status")).toContainText("Appointment canceled and audited.");
+  const afterCancellation = await (await context.request.get("/api/admin/appointments")).json();
+  expect(afterCancellation.appointments.find((item: { id: string }) => item.id === cancellationId).status).toBe("cancelled");
+  const slots = await (await context.request.get(`/api/appointments?${new URLSearchParams({ date: today, practitioner: "李医生" })}`)).json();
+  expect(slots.unavailableTimes).not.toContain("9:30 AM");
   const response = await context.request.get("/api/system-status");
   expect(response.status()).toBe(200);
   const status = await response.json();
@@ -128,6 +161,8 @@ test("patient registration, public booking and kiosk check-in persist through re
     "Patient management -> durable records and audit",
     "Public booking -> appointment state",
     "Kiosk -> patient list and appointment state",
+    "Staff management -> durable records and audit",
+    "Appointment changes -> shared storage and audit",
   ]) {
     expect(
       status.items.find((item: { name: string }) => item.name === name).status,

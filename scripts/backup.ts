@@ -1,4 +1,7 @@
+import { loadEnvConfig } from '@next/env';
 import { backupDirectory, backupSources, createVerifiedBackup } from '../app/lib/databaseBackup.server';
+
+loadEnvConfig(process.cwd(), process.env.NODE_ENV !== 'production');
 
 const main = async () => {
 try {

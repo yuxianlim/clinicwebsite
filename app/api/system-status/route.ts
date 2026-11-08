@@ -880,7 +880,9 @@ export async function GET() {
         kind: 'Connection',
         name: 'Database -> backups and recovery',
         status: backupReceipt ? 'Partly Connected' : 'Unknown',
-        description: 'Online SQLite snapshots and an isolated restore verifier are implemented; managed scheduling, protected off-host storage, and retention still need configuration.',
+        description: backupReceipt
+          ? 'A recent local snapshot passed isolated restore verification. Managed scheduling, protected off-host storage, retention and separate-host recovery still need configuration.'
+          : 'Online SQLite snapshots and an isolated restore verifier are implemented; run a local backup check, then configure managed disaster recovery.',
         connectedComponents: ['SQLite appointment/audit stores', 'npm run backup', 'isolated restore verifier'],
         informationExchanged: 'Private database snapshots, SHA-256 checksums, integrity checks, and full audit-chain verification. No patient data is returned to this dashboard.',
         evidence: [
@@ -889,7 +891,9 @@ export async function GET() {
           'Local snapshots are consistent per database; use a maintenance window for cross-database consistency. A local snapshot alone does not establish disaster recovery.',
         ],
         lastTestedAt: backupReceipt?.checkedAt ?? null,
-        missingRequirement: 'Run npm run backup with a protected CLINIC_BACKUP_DIR; configure scheduling, encrypted off-host copies and retention, and test recovery on a separate host.',
+        missingRequirement: backupReceipt
+          ? 'Keep local backups current; configure scheduling, encrypted off-host copies and retention, and test recovery on a separate host.'
+          : 'Run npm run backup with a protected CLINIC_BACKUP_DIR; configure scheduling, encrypted off-host copies and retention, and test recovery on a separate host.',
         safeErrorMessage: backupReceipt ? null : 'A recent verified backup is unavailable.',
       },
     ], stripeWebhookConfigured),

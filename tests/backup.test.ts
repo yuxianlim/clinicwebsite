@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -18,6 +19,23 @@ test('online backup includes WAL writes, restores separately, and detects later 
   appendAuditEvent({ module: 'appointments', action: 'Appointment created', relatedRecordId: 'backup-test', result: 'success', sessionId: null });
   createAppointment({ name: 'Fictional Test', contact: '4085550199', date: '2099-01-01', time: '9:00 AM', practitioner: '李医生' });
   try {
+    // The CLI must load the same .env.local paths as Next.js, rather than silently
+    // using its default .data directory when launched from VS Code/PowerShell.
+    const settings = {
+      AUDIT_LOG_DB_PATH: sources.audit,
+      CLINIC_APPOINTMENTS_DB_PATH: sources.appointments,
+      CLINIC_BACKUP_DIR: process.env.CLINIC_BACKUP_DIR,
+    };
+    writeFileSync(path.join(root, '.env.local'), Object.entries(settings)
+      .map(([key, value]) => `${key}=${JSON.stringify(value?.replaceAll('\\', '/'))}`).join('\n'));
+    const environment = { ...process.env, NODE_ENV: 'development' };
+    for (const key of Object.keys(settings)) delete environment[key as keyof typeof environment];
+    const output = execFileSync(process.execPath, [
+      path.join(process.cwd(), 'node_modules/tsx/dist/cli.mjs'),
+      path.join(process.cwd(), 'scripts/backup.ts'),
+    ], { cwd: root, env: environment, encoding: 'utf8' });
+    assert.match(output, /Backup and isolated restore verification passed/);
+    assert.ok(await latestVerifiedBackup(), 'the CLI receipt matches the configured application sources');
     const result = await createVerifiedBackup(sources, process.env.CLINIC_BACKUP_DIR);
     assert.ok(await latestVerifiedBackup());
     const recovery = path.join(root, 'recovery');

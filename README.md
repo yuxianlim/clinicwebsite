@@ -149,7 +149,7 @@ The current visual direction is English-first, with a warm neutral/cobalt palett
 
 The public brand is **Aven Clinic**. Navigation, footer and metadata use this name; internal database identifiers and clinical records are independent of the display brand.
 
-## Verify the six booking, kiosk and CEU workflows locally
+## Verify booking, kiosk, staff, appointments, CEU and local backups
 
 The dashboard reads the database used by the running application. Test results from another computer or a disposable test database do not populate your Windows database.
 
@@ -160,15 +160,19 @@ From the project folder in VS Code:
 3. In another terminal, run:
 
 ```powershell
-npm run verify:workflows -- --stripe
+npm run verify:workflows -- --stripe --backup
 ```
 
 This command is development-only and accepts loopback URLs only. It signs in using the configured administrator credentials and authenticator secret without printing them. If a TOTP code was just used, wait for the next code window before retrying. For an intentionally enabled development demo, set `ENABLE_DEVELOPMENT_ADMIN_DEMO=true` in both the application and verifier environments.
 
 The command verifies stored/audited evidence for patient registration, public booking and kiosk check-in. If those flows are unverified, it creates a clearly named **Development Check** patient using an unused fictional phone suffix, books a same-day test appointment, checks it in through the real APIs, and verifies persistence and the status response. These development records remain available for inspection. Re-running after all three are Connected does not create another patient or appointment.
 
-With `--stripe`, it requires matching sandbox keys in both the verifier and application, creates a real application CEU registration, verifies access using the publishable key, and confirms a **USD 95 sandbox payment** using Stripe's `pm_card_visa` test fixture. No real money is collected. It then waits for a genuinely signed provider webhook to persist the audit event and enrollment. It never invents webhook signatures or edits status flags. This verifies application/API paths; the browser UI is covered separately by `npm run test:ui`.
+It also checks staff-directory additions and administrator appointment changes. Where evidence is missing, it adds a clearly named development directory entry (without granting login access), and creates and cancels a separate fictional appointment for the following week. It verifies the saved records, released slot and audit-backed dashboard statuses. It never cancels an existing appointment; already verified workflows are skipped on repeat runs.
 
-If webhook delivery is delayed, the command prints a safe PaymentIntent reference and a command to recheck that same payment with `--payment-intent pi_...`. Fix the listener/secret and recheck it instead of creating another payment. Use `--url http://localhost:3001` if Next.js starts on a different port, and forward the listener to the same port. Omit `--stripe` to verify just registration, booking and check-in.
+With `--backup`, it snapshots the configured local databases and verifies an isolated restore, then checks that the running dashboard sees the same receipt. Both the standalone `npm run backup` command and the verifier load `.env.local`. Use the same database paths and `CLINIC_BACKUP_DIR` for the application and verifier. Backups contain private records: select a protected directory and restrict access using Windows folder permissions where applicable. This turns a successful local backup check from Unknown into Partly Connected; scheduling, encrypted off-host storage, retention and a separate-host recovery exercise are still required for managed recovery.
+
+With `--stripe`, it first runs the protected USD 1 sandbox PaymentIntent create-and-cancel connectivity probe (no payment method or charge). If CEU setup, signed audit and enrollment already have evidence, it skips creating another payment. Otherwise, it requires matching sandbox keys in both the verifier and application, creates a real application CEU registration, verifies access using the publishable key, and confirms a **USD 95 sandbox payment** using Stripe's `pm_card_visa` test fixture. No real money is collected. It then waits for a genuinely signed provider webhook to persist the audit event and enrollment. It never invents webhook signatures or edits status flags. This verifies application/API paths; the browser UI is covered separately by `npm run test:ui`.
+
+If webhook delivery is delayed, the command prints a safe PaymentIntent reference and a command to recheck that same payment with `--payment-intent pi_...`. Fix the listener/secret and recheck it instead of creating another payment. Use `--url http://localhost:3001` if Next.js starts on a different port, and forward the listener to the same port. Omit `--stripe` to verify local clinical workflows without contacting Stripe; add `--backup` for the local recovery check. Stripe's connectivity receipt expires after 15 minutes; rerun the dashboard probe or verifier to refresh it.
 
 The CEU dashboard now recognizes successful handler setup from an atomic pending-registration/setup/audit receipt tied to the current key configuration. A setup receipt confirms setup only; enrollment still requires a matching signed successful-payment event. Changing keys requires a new setup receipt. A late processing event cannot downgrade a previously verified successful payment.
