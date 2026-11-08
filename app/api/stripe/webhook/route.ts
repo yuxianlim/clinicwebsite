@@ -1,3 +1,4 @@
+import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import Stripe from 'stripe';
 import { appendVerifiedStripeWebhookEvent } from '@/app/lib/auditStore.server';
 
@@ -36,6 +37,8 @@ export async function POST(request: Request) {
   const eventMapping = paymentEvents[event.type];
   if (!eventMapping) return Response.json({ received: true, ignored: true });
 
+  const configuration = stripeConfiguration();
+  if (configuration.mode && event.livemode !== (configuration.mode === 'live')) return Response.json({ error: 'Payment notification mode does not match this environment.' }, { status: 400 });
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
   const topicId = paymentIntent.metadata?.topicId;
   const registrationId = paymentIntent.metadata?.registrationId;
@@ -46,7 +49,7 @@ export async function POST(request: Request) {
     || !Object.prototype.hasOwnProperty.call(topics, topicId)
     || paymentIntent.currency !== 'usd'
     || paymentIntent.amount !== topics[topicId]
-    || (registrationId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(registrationId))
+    || (typeof registrationId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(registrationId))
   ) {
     return Response.json({ error: 'Payment notification could not be matched to a valid registration.' }, { status: 400 });
   }

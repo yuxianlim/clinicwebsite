@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const stripe = new Stripe(secretKey, { apiVersion: '2026-06-24.dahlia' });
+    const stripe = new Stripe(secretKey, { apiVersion: '2026-06-24.dahlia', timeout: 5000, maxNetworkRetries: 0 });
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
     const verifiedEvent = getVerifiedStripePaymentState(paymentIntent.id);
     const topicId = paymentIntent.metadata.topicId;

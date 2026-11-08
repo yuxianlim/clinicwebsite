@@ -50,3 +50,9 @@ npm run dev -- --hostname 0.0.0.0
 ```
 
 Use existing isolated checkouts; do not create worktrees unless explicitly requested. Processes need restarting in new tasks. With no administrator configuration, sign-in is unavailable by design; for a deliberate local demo only, start with `ENABLE_DEVELOPMENT_ADMIN_DEMO=true npm run dev -- --hostname 0.0.0.0`. A demo must stay labeled and cannot count as verified authentication. Use loopback URLs only for internal checks; no user-facing loopback preview is published.
+
+## Local workflow verification update
+
+Run `npm run verify:workflows -- --stripe` against your running Windows development server after syncing this code. This creates clearly named development records only where evidence is missing and uses a sandbox test PaymentIntent for CEU. The verifier refuses non-loopback URLs, production targets and live-key payment tests. Its Stripe branch requires the real listener and a matching signed webhook; it does not mark missing provider delivery as verified.
+
+The previous permanently Partly Connected CEU setup row is fixed: only the application handler's atomic registration/setup/audit receipt for the current key configuration can connect it. Pending processing events are allowed time to settle, and late events cannot replace a successful settlement with a pending payment state. See the README for terminal setup, test data and rechecking an existing test payment.

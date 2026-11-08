@@ -1,3 +1,4 @@
+import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import { getKioskRateLimitStatus } from '@/app/lib/kioskRateLimit.server';
 import { latestVerifiedBackup } from '@/app/lib/backupStatus.server';
 import { administratorAuthenticationConfigured, administratorDemoEnabled } from '@/app/lib/adminAuthentication.server';
@@ -10,6 +11,7 @@ import {
   getLatestAdministratorLoginEvent,
   getLatestVerifiedStripeEvent,
   getLatestCeuEnrollment,
+  getLatestCeuPaymentSetup,
   getLatestStripeApiConnectivityCheck,
   getLatestIntegrationSimulationChecks,
   getClinicRecordCounts,
@@ -250,6 +252,7 @@ export async function GET() {
   if (!session) return Response.json({ error: 'Administrator access required.' }, { status: 403 });
 
   const checkedAt = new Date().toISOString();
+  const paymentConfiguration = stripeConfiguration();
   let auditStatus: { eventCount: number; chainValid: boolean } | null = null;
   let latestAdministratorLogin: ReturnType<typeof getLatestAdministratorLoginEvent> = null;
   let latestBookingAudit: ReturnType<typeof getLatestAuditEvent> = null;
@@ -259,6 +262,7 @@ export async function GET() {
   let latestAdminAppointmentAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestSuccessfulKioskCheckIn: ReturnType<typeof getLatestAuditEvent> = null;
   let latestVerifiedStripeEvent: ReturnType<typeof getLatestVerifiedStripeEvent> = null;
+  let latestCeuPaymentSetup: ReturnType<typeof getLatestCeuPaymentSetup> = null;
   let latestCeuEnrollment: ReturnType<typeof getLatestCeuEnrollment> = null;
   let latestStripeApiConnectivityCheck: ReturnType<typeof getLatestStripeApiConnectivityCheck> = null;
   let latestIntegrationSimulationChecks = new Map<IntegrationSimulationTarget, IntegrationSimulationCheck>();
@@ -273,6 +277,7 @@ export async function GET() {
     latestSuccessfulKioskCheckIn = getLatestAuditEvent('check-in', ['Patient checked in']);
     latestVerifiedStripeEvent = getLatestVerifiedStripeEvent();
     latestCeuEnrollment = getLatestCeuEnrollment();
+    latestCeuPaymentSetup = getLatestCeuPaymentSetup(paymentConfiguration.scope);
     latestStripeApiConnectivityCheck = getLatestStripeApiConnectivityCheck();
     latestIntegrationSimulationChecks = getLatestIntegrationSimulationChecks();
   } catch {
@@ -309,6 +314,7 @@ export async function GET() {
     process.env.STRIPE_SECRET_KEY
     && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   );
+  const ceuSetupVerified = Boolean(auditStatus?.chainValid && latestCeuPaymentSetup && paymentConfiguration.mode);
   const stripeWebhookConfigured = Boolean(process.env.STRIPE_WEBHOOK_SECRET);
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? '';
   const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
@@ -361,6 +367,7 @@ export async function GET() {
   return Response.json({
     checkedAt,
     environment: process.env.NODE_ENV === 'production' ? 'Production' : 'Development',
+    stripeMode: paymentConfiguration.mode ?? 'unconfigured',
     developmentIntegrationSimulatorsEnabled: developmentIntegrationSimulatorsEnabled(),
     items: withDependencyGroups([
       ubuntuHostProbe,
@@ -663,19 +670,20 @@ export async function GET() {
       {
         kind: 'Connection',
         name: 'CEU form -> Stripe PaymentIntent',
-        status: !paymentsConfigured || !stripeModesMatch ? 'Failed' : 'Partly Connected',
-        description: 'The CEU form and PaymentIntent handler are implemented, but this dashboard check exercises Stripe API connectivity separately and does not exercise the form handler or create a learner registration.',
+        status: !paymentsConfigured || !stripeModesMatch ? 'Failed' : ceuSetupVerified ? 'Connected' : 'Partly Connected',
+        description: ceuSetupVerified ? 'The application handler created a provider PaymentIntent and atomically persisted its pending registration and audit evidence for the current key configuration. Payment settlement is verified separately.' : 'The CEU handler is available, but no successful persisted PaymentIntent setup has been verified for the current key configuration.',
         connectedComponents: ['CEU PaymentForm', '/api/stripe/payment_intent', 'Stripe PaymentIntents API'],
         informationExchanged: 'Validated learner and topic data to the server; server-selected amount/currency and metadata to Stripe; client secret back to browser. Card data remains with Stripe.',
         evidence: [
           'CEU.tsx submits learner name, email, and topic to POST /api/stripe/payment_intent.',
-          'The server handler validates learner fields and topic, persists a pending enrollment, creates the provider intent, and returns a client secret; this application route has not been run as part of the safe connectivity check.',
+          'The handler validates learner details and server-selected price; only a successful provider response plus an atomic registration and audit write creates setup evidence.',
+          ...(ceuSetupVerified && latestCeuPaymentSetup ? [`PaymentIntent setup was recorded at ${latestCeuPaymentSetup.createdAt} in ${latestCeuPaymentSetup.livemode ? 'live' : 'test'} mode. This does not confirm payment or enrollment.`] : ['No matching successful setup receipt is available. The separate connectivity probe does not create setup evidence.']),
         ],
-        lastTestedAt: null,
-        missingRequirement: !paymentsConfigured || !stripeModesMatch
+        lastTestedAt: ceuSetupVerified ? latestCeuPaymentSetup?.createdAt ?? null : null,
+        missingRequirement: ceuSetupVerified ? null : !paymentsConfigured || !stripeModesMatch
           ? 'Configure matching Stripe secret and publishable keys.'
-          : 'Verify the CEU form-to-handler flow without retaining test learner data or claiming a payment.',
-        safeErrorMessage: 'Payment could not be started. Please retry later or contact the clinic.',
+          : 'Complete CEU payment setup through the application form or the development workflow verifier; Stripe connectivity checks alone do not verify this handler.',
+        safeErrorMessage: ceuSetupVerified ? null : 'Payment could not be started. Please retry later or contact the clinic.',
       },
       {
         kind: 'Connection',

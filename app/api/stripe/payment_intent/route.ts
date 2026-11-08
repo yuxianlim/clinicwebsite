@@ -1,6 +1,7 @@
+import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import { randomUUID } from 'node:crypto';
 import Stripe from 'stripe';
-import { createPendingCeuEnrollment, recordServerAuditEvent } from '@/app/lib/auditStore.server';
+import { recordCeuPaymentSetup, recordServerAuditEvent } from '@/app/lib/auditStore.server';
 
 const topics = [
   { id: 'fall-prevention', title: 'Fall Prevention', amount: 9500 },
@@ -39,7 +40,8 @@ export async function POST(req: Request) {
   relatedRecordId = topic.id;
 
   const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
+  const configuration = stripeConfiguration();
+  if (!secretKey || !configuration.scope) {
     recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup failed', relatedRecordId, result: 'failed', sessionId: null });
     return Response.json({ error: 'Payment is temporarily unavailable. Please try again later.' }, { status: 503 });
   }
@@ -47,31 +49,31 @@ export async function POST(req: Request) {
   try {
     const registrationId = randomUUID();
     const stripe = new Stripe(secretKey, {
-      apiVersion: '2026-06-24.dahlia',
+      apiVersion: '2026-06-24.dahlia', timeout: 10_000, maxNetworkRetries: 1,
     });
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: topic.amount,
       currency: 'usd',
-      automatic_payment_methods: { enabled: true },
+      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       metadata: {
         topicId: topic.id,
         topicTitle: topic.title,
         registrationId,
       },
     });
-    if (!paymentIntent.client_secret) {
-      console.error('Stripe created a CEU PaymentIntent without a client secret.');
-      return Response.json({ error: 'Payment could not be started. Please try again later.' }, { status: 503 });
-    }
 
     try {
-      createPendingCeuEnrollment({
+      if (!paymentIntent.client_secret || typeof paymentIntent.livemode !== 'boolean'
+        || paymentIntent.livemode !== (configuration.mode === 'live')) throw new Error('Invalid provider intent.');
+      recordCeuPaymentSetup({
         registrationId,
         paymentIntentId: paymentIntent.id,
         topicId: topic.id,
         learnerName,
         learnerEmail,
+        livemode: paymentIntent.livemode,
+        configurationScope: configuration.scope,
       });
     } catch {
       console.error('Pending CEU enrollment could not be recorded.');
@@ -84,7 +86,6 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Registration could not be saved. Please try again later.' }, { status: 503 });
     }
 
-    recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup succeeded', relatedRecordId, result: 'pending', sessionId: null });
 
     return Response.json({ clientSecret: paymentIntent.client_secret }, {
       headers: { 'Cache-Control': 'no-store' },

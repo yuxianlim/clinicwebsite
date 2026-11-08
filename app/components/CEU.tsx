@@ -1,5 +1,6 @@
 'use client';
 
+import { paymentVerificationState, type PaymentVerification } from '@/app/lib/paymentVerification';
 import { useState, type FormEvent } from 'react';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import { CardElement, Elements, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -115,29 +116,25 @@ const PaymentForm = ({
       }
 
       let serverVerified = false;
-      for (let attempt = 0; attempt < 5; attempt += 1) {
+      const verificationDeadline = Date.now() + 30_000;
+      while (Date.now() < verificationDeadline) {
         const statusResponse = await fetch(
           `/api/stripe/payment_status?paymentIntentId=${encodeURIComponent(result.paymentIntent.id)}`,
           { cache: 'no-store' },
         );
         if (statusResponse.ok) {
-          const paymentStatus = await statusResponse.json() as {
-            webhookVerified?: boolean;
-            verifiedResult?: string | null;
-            registrationStatus?: 'pending_payment' | 'enrolled' | null;
-          };
-          if (paymentStatus.webhookVerified && paymentStatus.verifiedResult === 'success') {
-            if (paymentStatus.registrationStatus !== 'enrolled') {
-              setStatusMessage('Payment was verified, but enrollment is not yet confirmed. Do not retry; contact the clinic.');
-              return;
-            }
-            serverVerified = true;
-            break;
-          }
-          if (paymentStatus.webhookVerified && paymentStatus.verifiedResult !== 'success') {
-            setStatusMessage('The server could not confirm a successful payment. Please contact the clinic before retrying.');
+          const paymentStatus = await statusResponse.json() as PaymentVerification;
+          const verification = paymentVerificationState(paymentStatus);
+          if (verification === 'confirmed') { serverVerified = true; break; }
+          if (verification === 'unmatched') {
+            setStatusMessage('Payment was verified, but enrollment could not be matched. Do not retry; contact the clinic.');
             return;
           }
+          if (verification === 'failed') {
+            setStatusMessage('The server recorded a failed or canceled payment. Contact the clinic before retrying.');
+            return;
+          }
+          setStatusMessage('Waiting for secure payment and enrollment confirmation. Please do not submit another payment.');
         }
         await new Promise((resolve) => window.setTimeout(resolve, 1000));
       }

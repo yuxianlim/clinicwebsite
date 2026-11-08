@@ -8,6 +8,7 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
 
 export default defineConfig({
   testDir: './e2e',
+  testMatch: '**/responsive.spec.ts',
   globalTeardown: './e2e/cleanup.ts',
   metadata: { responsiveDataDirectory: data },
   outputDir: 'test-results/responsive',
@@ -22,6 +23,7 @@ export default defineConfig({
     { name: 'laptop', use: { viewport: { width: 1024, height: 768 } } },
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
     { name: 'phone-landscape', use: { viewport: { width: 844, height: 390 } } },
+    { name: 'workflows', testMatch: '**/clinic-workflows.spec.ts', use: { viewport: { width: 1440, height: 900 } } },
   ],
   webServer: {
     command: 'npm run dev -- --hostname 127.0.0.1 --port 3102', url: 'http://127.0.0.1:3102', reuseExistingServer: false,

@@ -199,6 +199,12 @@ const getDatabase = () => {
       created_at TEXT NOT NULL,
       enrolled_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS ceu_payment_setups (
+      registration_id TEXT PRIMARY KEY REFERENCES ceu_enrollments(registration_id),
+      created_at TEXT NOT NULL,
+      livemode INTEGER NOT NULL,
+      configuration_scope TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS stripe_api_connectivity_checks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       checked_at TEXT NOT NULL,
@@ -498,14 +504,15 @@ const mapCeuEnrollment = (row: {
   enrolledAt: row.enrolled_at,
 });
 
-export const createPendingCeuEnrollment = (input: {
+type NewCeuEnrollment = {
   registrationId: string;
   paymentIntentId: string;
   topicId: string;
   learnerName: string;
   learnerEmail: string;
-}) => {
-  const database = getDatabase();
+};
+
+const insertPendingCeuEnrollment = (database: DatabaseSync, input: NewCeuEnrollment) => {
   const createdAt = new Date().toISOString();
   database.prepare(`
     INSERT INTO ceu_enrollments (
@@ -530,6 +537,34 @@ export const createPendingCeuEnrollment = (input: {
   };
 };
 
+export const createPendingCeuEnrollment = (input: NewCeuEnrollment) => insertPendingCeuEnrollment(getDatabase(), input);
+
+// Only the real application PaymentIntent handler uses this attested setup path.
+export const recordCeuPaymentSetup = (input: NewCeuEnrollment & { livemode: boolean; configurationScope: string }) => {
+  const database = getDatabase();
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    const registration = insertPendingCeuEnrollment(database, input);
+    database.prepare('INSERT INTO ceu_payment_setups(registration_id, created_at, livemode, configuration_scope) VALUES (?, ?, ?, ?)')
+      .run(input.registrationId, registration.createdAt, input.livemode ? 1 : 0, input.configurationScope);
+    appendAuditEventInTransaction(database, { module: 'payments', action: 'CEU payment setup succeeded', relatedRecordId: input.registrationId, result: 'pending', sessionId: null });
+    database.exec('COMMIT');
+    return registration;
+  } catch (error) { database.exec('ROLLBACK'); throw error; }
+};
+
+export const getLatestCeuPaymentSetup = (configurationScope: string | null) => {
+  if (!configurationScope) return null;
+  const row = getDatabase().prepare(`
+    SELECT e.registration_id, e.payment_intent_id, e.topic_id, s.created_at, s.livemode
+    FROM ceu_payment_setups s JOIN ceu_enrollments e ON e.registration_id = s.registration_id
+    JOIN audit_log a ON a.related_record_id = e.registration_id AND a.module = 'payments'
+      AND a.action = 'CEU payment setup succeeded' AND a.result = 'pending'
+    WHERE s.configuration_scope = ? ORDER BY a.sequence DESC LIMIT 1
+  `).get(configurationScope) as { registration_id: string; payment_intent_id: string; topic_id: string; created_at: string; livemode: number } | undefined;
+  return row ? { registrationId: row.registration_id, paymentIntentId: row.payment_intent_id, topicId: row.topic_id, createdAt: row.created_at, livemode: Boolean(row.livemode) } : null;
+};
+
 export const getCeuEnrollmentByPaymentIntent = (paymentIntentId: string): CeuEnrollmentState | null => {
   const row = getDatabase().prepare(`
     SELECT registration_id, payment_intent_id, topic_id, status, created_at, enrolled_at
@@ -548,7 +583,10 @@ export const getCeuEnrollmentByPaymentIntent = (paymentIntentId: string): CeuEnr
 export const getLatestCeuEnrollment = (): CeuEnrollmentState | null => {
   const row = getDatabase().prepare(`
     SELECT registration_id, payment_intent_id, topic_id, status, created_at, enrolled_at
-    FROM ceu_enrollments WHERE status = 'enrolled' ORDER BY enrolled_at DESC LIMIT 1
+    FROM ceu_enrollments WHERE status = 'enrolled'
+      AND EXISTS (SELECT 1 FROM verified_stripe_events v WHERE v.payment_intent_id = ceu_enrollments.payment_intent_id
+        AND v.topic_id = ceu_enrollments.topic_id AND v.action = 'CEU payment succeeded' AND v.result = 'success')
+    ORDER BY enrolled_at DESC LIMIT 1
   `).get() as {
     registration_id: string;
     payment_intent_id: string;
@@ -711,7 +749,7 @@ export const appendVerifiedStripeWebhookEvent = (input: {
 export const getVerifiedStripePaymentState = (paymentIntentId: string): VerifiedStripePaymentState | null => {
   const row = getDatabase().prepare(`
     SELECT action, result, occurred_at, livemode FROM verified_stripe_events
-    WHERE payment_intent_id = ? ORDER BY stripe_created_at DESC LIMIT 1
+    WHERE payment_intent_id = ? ORDER BY CASE WHEN action = 'CEU payment succeeded' AND result = 'success' THEN 1 ELSE 0 END DESC, stripe_created_at DESC, rowid DESC LIMIT 1
   `).get(paymentIntentId) as { action: string; result: AuditResult; occurred_at: string; livemode: number } | undefined;
   return row ? { action: row.action, result: row.result, occurredAt: row.occurred_at, livemode: Boolean(row.livemode) } : null;
 };

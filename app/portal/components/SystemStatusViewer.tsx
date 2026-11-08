@@ -42,6 +42,7 @@ type IntegrationSimulationResult = {
 type SystemStatus = {
   checkedAt: string;
   environment: string;
+  stripeMode?: 'test' | 'live' | 'unconfigured';
   developmentIntegrationSimulatorsEnabled?: boolean;
   items: SystemItem[];
 };
@@ -316,6 +317,7 @@ export default function SystemStatusViewer() {
       {systemStatus ? (
         <div className="flex flex-wrap gap-x-6 gap-y-2 border-y border-[#dce1e8] py-3 text-sm text-slate-600">
           <span>Environment: <strong className="font-medium text-slate-800">{systemStatus.environment}</strong></span>
+          {systemStatus.stripeMode && <span>Stripe: <strong className="font-medium text-slate-800">{systemStatus.stripeMode === 'test' ? 'Sandbox' : systemStatus.stripeMode === 'live' ? 'Live' : 'Not configured'}</strong></span>}
           <span>Checked: <time dateTime={systemStatus.checkedAt}>{new Date(systemStatus.checkedAt).toLocaleString()}</time></span>
           <span>{refreshing ? 'Refreshing status...' : 'Auto-refreshes every 30 seconds'}</span>
         </div>
