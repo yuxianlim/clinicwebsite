@@ -7,6 +7,7 @@ type ConnectionStatus = 'Connected' | 'Partly Connected' | 'Planned' | 'Unknown'
 
 type SystemItem = {
   kind: 'Component' | 'Connection';
+  scope?: 'deferred-live';
   name: string;
   status: ConnectionStatus;
   description: string;
@@ -66,6 +67,7 @@ const isSystemStatus = (value: unknown): value is SystemStatus => {
       item !== null
       && typeof item === 'object'
       && ['Connected', 'Partly Connected', 'Planned', 'Unknown', 'Failed'].includes(item.status)
+      && (item.scope === undefined || item.scope === 'deferred-live')
       && typeof item.name === 'string'
       && typeof item.description === 'string'
       && Array.isArray(item.connectedComponents)
@@ -146,6 +148,36 @@ const simulationPayload = (target: IntegrationSimulationTarget) => {
     }
   }
 };
+
+
+function ConnectionCard({ item, deferred = false }: { item: SystemItem; deferred?: boolean }) {
+  const color = statuses.find((status) => status.id === item.status)?.color ?? 'text-slate-700';
+  return (
+    <article className="min-w-0 rounded-xl border border-[#dce1e8] bg-white p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-48">
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-600">{item.kind} · {item.dependencyGroup ?? 'Core application'}</p>
+          <h5 className="mt-2 break-words font-semibold text-slate-900">{item.name}</h5>
+        </div>
+        <span className={`shrink-0 rounded-full border border-current px-3 py-1 text-xs font-semibold ${color}`}>{deferred ? 'Deferred live setup' : item.status}</span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-700">{item.description}</p>
+      {item.missingRequirement && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800"><span className="font-semibold">Next step: </span>{item.missingRequirement}</div>}
+      <details className="mt-4 border-t border-[#dce1e8] pt-3">
+        <summary className="min-h-11 text-sm font-medium text-slate-800">Evidence and connection details</summary>
+        <dl className="mt-3 grid min-w-0 gap-4 text-sm sm:grid-cols-2">
+          <div className="min-w-0"><dt className="font-medium text-slate-800">Connected components</dt><dd className="mt-1 break-words text-slate-600">{item.connectedComponents.join(', ')}</dd></div>
+          <div className="min-w-0"><dt className="font-medium text-slate-800">Information exchanged</dt><dd className="mt-1 text-slate-600">{item.informationExchanged}</dd></div>
+          <div className="min-w-0 sm:col-span-2"><dt className="font-medium text-slate-800">Supporting evidence</dt><dd><ul className="mt-1 list-disc space-y-2 pl-5 text-slate-600">{item.evidence.map((entry) => <li key={entry}>{entry}</li>)}</ul></dd></div>
+          <div><dt className="font-medium text-slate-800">Last tested</dt><dd className="mt-1 text-slate-600">{item.lastTestedAt ? <time dateTime={item.lastTestedAt}>{new Date(item.lastTestedAt).toLocaleString()}</time> : 'Not tested during this status check'}</dd></div>
+          <div><dt className="font-medium text-slate-800">Test source</dt><dd className="mt-1 text-slate-600">{item.testSource}</dd></div>
+          <div><dt className="font-medium text-slate-800">Blocker category</dt><dd className="mt-1 text-slate-600">{item.blockerCategory ?? 'None identified'}</dd></div>
+          <div><dt className="font-medium text-slate-800">Safe error message</dt><dd className="mt-1 text-slate-600">{item.safeErrorMessage ?? 'None specified'}</dd></div>
+        </dl>
+      </details>
+    </article>
+  );
+}
 
 export default function SystemStatusViewer() {
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
@@ -316,6 +348,10 @@ export default function SystemStatusViewer() {
     }
   };
 
+  const activeItems = systemStatus?.items.filter((item) => item.scope !== 'deferred-live') ?? [];
+  const deferredItems = systemStatus?.items.filter((item) => item.scope === 'deferred-live') ?? [];
+  const matchesQuery = (item: SystemItem) => !query.trim() || [item.name, item.description, item.missingRequirement, item.dependencyGroup].some((value) => value?.toLowerCase().includes(query.trim().toLowerCase()));
+
   return (
     <section className="min-w-0 space-y-5">
       <div>
@@ -327,11 +363,11 @@ export default function SystemStatusViewer() {
             {statuses.map((status) => (
               <a key={status.id} href={`#status-${status.id.replaceAll(' ', '-')}`} className="min-w-0 rounded-xl border border-[#dce1e8] bg-white p-3 hover:border-[#dce1e8]">
                 <span className={`block text-sm font-medium ${status.color}`}>{status.id}</span>
-                <span className="mt-1 block text-2xl font-semibold text-slate-900">{systemStatus.items.filter((item) => item.status === status.id).length}</span>
+                <span className="mt-1 block text-2xl font-semibold text-slate-900">{activeItems.filter((item) => item.status === status.id).length}</span>
               </a>
             ))}
           </nav>
-          <p className="text-sm leading-6 text-slate-600">Planned items are deferred or need implementation, service setup, hardware or approvals. Unknown means a check has not run or its result has expired. Demo learning has separate evidence rows; simulations do not connect real services.</p>
+          <p className="text-sm leading-6 text-slate-600">Counts above cover active connections. Deferred live requirements appear separately below. Planned active items need implementation, service setup or hardware. Unknown means a check has not run or its result has expired. Demo learning has separate evidence rows; simulations do not connect real services.</p>
           <label className="block text-sm font-medium text-slate-700">
             Search connections
             <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Component, service, or missing requirement" className="mt-2 min-h-11 w-full rounded-lg border border-[#dce1e8] bg-white px-3 text-base text-slate-900 placeholder:text-slate-600" />
@@ -346,7 +382,7 @@ export default function SystemStatusViewer() {
             <p className="mt-1 text-xs text-slate-600">Passed/Failed reflect the latest verifiable dashboard evidence. Partly Connected and Unknown remain Not Tested until end-to-end evidence is recorded.</p>
             <p className="mt-2 text-xs text-slate-500">Test outcomes: Passed · Failed · Not Tested · Planned · Not Applicable</p>
             <ul className="mt-3 grid gap-2 md:grid-cols-2">
-              {systemStatus.items.filter((item) => item.kind === 'Connection').map((item) => {
+              {activeItems.filter((item) => item.kind === 'Connection').map((item) => {
                 const result = workflowTestStatus(item.status);
                 const color = result === 'Passed' ? 'text-emerald-700' : result === 'Failed' ? 'text-rose-700' : result === 'Planned' ? 'text-blue-700' : 'text-amber-800';
                 return (
@@ -432,7 +468,7 @@ export default function SystemStatusViewer() {
       {error ? <p className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">{error}</p> : null}
       {!systemStatus && !error ? <p className="py-6 text-sm text-slate-600">Checking system status...</p> : null}
       {systemStatus ? statuses.map((status) => {
-        const items = systemStatus.items.filter((item) => item.status === status.id
+        const items = activeItems.filter((item) => item.status === status.id
           && [item.name, item.description, item.dependencyGroup, item.missingRequirement].some((value) => value?.toLowerCase().includes(query.trim().toLowerCase())));
         return (
           <section key={status.id} aria-labelledby={`status-${status.id.replaceAll(' ', '-')}`} className="min-w-0 space-y-3 scroll-mt-6">
@@ -442,35 +478,20 @@ export default function SystemStatusViewer() {
             {items.length ? (
               <div className="grid min-w-0 gap-3 2xl:grid-cols-2">
                 {items.map((item) => (
-                  <article key={`${item.kind}-${item.name}`} className="min-w-0 rounded-xl border border-[#dce1e8] bg-white p-4 sm:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1 basis-48">
-                        <p className="text-xs font-medium uppercase tracking-wider text-slate-600">{item.kind} · {item.dependencyGroup ?? 'Core application'}</p>
-                        <h5 className="mt-2 break-words font-semibold text-slate-900">{item.name}</h5>
-                      </div>
-                      <span className={`shrink-0 rounded-full border border-current px-3 py-1 text-xs font-semibold ${status.color}`}>{item.status}</span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-700">{item.description}</p>
-                    {item.missingRequirement && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800"><span className="font-semibold">Next step: </span>{item.missingRequirement}</div>}
-                    <details className="mt-4 border-t border-[#dce1e8] pt-3">
-                      <summary className="min-h-11 text-sm font-medium text-slate-800">Evidence and connection details</summary>
-                      <dl className="mt-3 grid min-w-0 gap-4 text-sm sm:grid-cols-2">
-                        <div className="min-w-0"><dt className="font-medium text-slate-800">Connected components</dt><dd className="mt-1 break-words text-slate-600">{item.connectedComponents.join(', ')}</dd></div>
-                        <div className="min-w-0"><dt className="font-medium text-slate-800">Information exchanged</dt><dd className="mt-1 text-slate-600">{item.informationExchanged}</dd></div>
-                        <div className="min-w-0 sm:col-span-2"><dt className="font-medium text-slate-800">Supporting evidence</dt><dd><ul className="mt-1 list-disc space-y-2 pl-5 text-slate-600">{item.evidence.map((entry) => <li key={entry}>{entry}</li>)}</ul></dd></div>
-                        <div><dt className="font-medium text-slate-800">Last tested</dt><dd className="mt-1 text-slate-600">{item.lastTestedAt ? <time dateTime={item.lastTestedAt}>{new Date(item.lastTestedAt).toLocaleString()}</time> : 'Not tested during this status check'}</dd></div>
-                        <div><dt className="font-medium text-slate-800">Test source</dt><dd className="mt-1 text-slate-600">{item.testSource}</dd></div>
-                        <div><dt className="font-medium text-slate-800">Blocker category</dt><dd className="mt-1 text-slate-600">{item.blockerCategory ?? 'None identified'}</dd></div>
-                        <div><dt className="font-medium text-slate-800">Safe error message</dt><dd className="mt-1 text-slate-600">{item.safeErrorMessage ?? 'None specified'}</dd></div>
-                      </dl>
-                    </details>
-                  </article>
+                  <ConnectionCard key={`${item.kind}-${item.name}`} item={item} />
                 ))}
               </div>
             ) : <p className="rounded-lg border border-[#dce1e8] p-4 text-sm text-slate-600">{query ? 'No matching connections in this group.' : 'No items in this status.'}</p>}
           </section>
         );
       }) : null}
+      {deferredItems.length > 0 && <details className="rounded-xl border border-[#dce1e8] bg-[#f3f5f8] p-4 sm:p-5" data-testid="deferred-live-requirements">
+        <summary className="min-h-11 font-semibold text-slate-900">Deferred live requirements ({deferredItems.length})</summary>
+        <p className="mt-3 text-sm leading-6 text-slate-700">You chose demo courses and demo-only phone codes. Their working demo connections are listed above. The live services below remain pending and are excluded from active connection counts. No approved CE credit or real SMS delivery is claimed.</p>
+        <div className="mt-4 grid min-w-0 gap-3 2xl:grid-cols-2">{deferredItems.filter(matchesQuery).map((item) => <ConnectionCard key={item.name} item={item} deferred />)}</div>
+        {!deferredItems.some(matchesQuery) && <p className="mt-3 text-sm text-slate-600">No deferred live requirements match your search.</p>}
+      </details>}
+
     </section>
   );
 }

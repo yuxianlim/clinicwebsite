@@ -825,6 +825,7 @@ export async function GET() {
       {
         kind: 'Connection',
         name: 'CEU completion/attendance -> certificate issuance',
+        ...(learningDemoEnabled() ? { scope: 'deferred-live' as const } : {}),
         status: 'Planned',
         description: 'The development workspace supports video progress, a final exam and non-credit demo certificates. Approved CE certificate issuance awaits course and provider approval details.',
         connectedComponents: ['SQLite ceu_enrollments', 'course completion/attendance service', 'certificate issuer'],
@@ -837,6 +838,7 @@ export async function GET() {
       {
         kind: 'Connection',
         name: 'Patient identity provider -> kiosk verification',
+        ...(demoKioskEnabled() ? { scope: 'deferred-live' as const } : {}),
         status: 'Planned',
         description: 'Real SMS delivery is deferred by the current choice to keep phone verification demo-only. The fictional code flow is available.',
         connectedComponents: ['Future SMS verification provider', 'kiosk verification API'],

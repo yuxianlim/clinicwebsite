@@ -109,3 +109,7 @@ The fictional clinic ledger now implements the approved $180/$120 visit pricing 
 See [NFC_AND_BILLING_REQUIREMENTS.md](NFC_AND_BILLING_REQUIREMENTS.md) for current instructions; earlier pending-rule notes above describe prior versions. All new financial operations are development-only. Real payments/refunds, insurance claims and physical NFC still need their actual integrations.
 
 Validation: 27 server tests and 10 browser tests passed, along with lint, TypeScript checking and the production build. Fresh local demo setup reported all 10 active Demo connection rows Connected, including the $180 initial visit and $120 follow-up paid $180 with a $60 approved overpayment refund. Physical hardware and real financial processing were not tested.
+
+## Deferred live requirements in the demo dashboard
+
+When the corresponding demo flags are enabled, approved CE certificate issuance and real patient SMS verification remain Planned in the API with `scope: deferred-live`. The dashboard presents them under **Deferred live requirements**, outside active status counts and the active workflow overview. Their evidence and setup requirements remain inspectable and searchable. No status is promoted to Connected by this presentation change. With demos disabled (including production), those requirements remain in the ordinary Planned list. Browser checks cover the separate section, active count exclusion and the working learner/phone-code workflows.

@@ -32,6 +32,20 @@ test('one admin action connects fictional learner, kiosk, NFC and clinic billing
   const report = await (await context.request.get('/api/system-status')).json();
   expect(report.items.find((item: {name:string}) => item.name.startsWith('Demo NFC:')).status).toBe('Connected');
   expect(report.items.find((item: {name:string}) => item.name.startsWith('Demo billing:')).status).toBe('Connected');
+  const deferred = page.getByTestId('deferred-live-requirements');
+  await expect(deferred.locator('summary').first()).toHaveText('Deferred live requirements (2)');
+  const planned = page.locator('section[aria-labelledby="status-Planned"]');
+  for (const name of ['CEU completion/attendance -> certificate issuance', 'Patient identity provider -> kiosk verification']) {
+    expect(report.items.find((item: {name:string}) => item.name === name).scope).toBe('deferred-live');
+    await expect(planned).not.toContainText(name);
+    await expect(deferred.getByRole('heading', { name, exact: true })).not.toBeVisible();
+  }
+  await deferred.locator('summary').first().click();
+  await expect(deferred.getByText('Deferred live setup', { exact: true })).toHaveCount(2);
+  await expect(deferred).toContainText('No approved CE credit or real SMS delivery is claimed.');
+  const activePlanned = report.items.filter((item: {status:string;scope?:string}) => item.status === 'Planned' && item.scope !== 'deferred-live').length;
+  await expect(page.locator('nav[aria-label="Connection status groups"] a[href="#status-Planned"] span').last()).toHaveText(String(activePlanned));
+  await deferred.locator('summary').first().click();
   expect(report.items.find((item: { name: string }) => item.name === 'CEU completion/attendance -> certificate issuance').status).toBe('Planned');
   expect(report.items.find((item: { name: string }) => item.name === 'Patient identity provider -> kiosk verification').status).toBe('Planned');
   expect(report.items.find((item: { name: string }) => item.name === 'Application -> Ubuntu host health endpoint').status).toBe('Planned');
