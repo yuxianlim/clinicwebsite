@@ -4,7 +4,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { isValidPractitioner } from './appointmentValidation';
 import { findClinicPatientByLastFour } from './auditStore.server';
-import { normalizePhone } from './clinicData';
+import { normalizePhone, type Patient } from './clinicData';
 import type { Appointment } from '@/app/context/BookingContext';
 
 const databasePath = process.env.CLINIC_APPOINTMENTS_DB_PATH
@@ -179,7 +179,11 @@ export type KioskAppointmentMatch = {
 export const findKioskAppointment = (lastFour: string, date: string): KioskAppointmentMatch | null => {
   const patient = findClinicPatientByLastFour(lastFour);
   if (!patient) return null;
+  return findKioskAppointmentForVerifiedPatient(patient, date);
+};
 
+/** Caller must complete its verification before requesting this limited summary/token. */
+export const findKioskAppointmentForVerifiedPatient = (patient: Patient, date: string): KioskAppointmentMatch | null => {
   const rows = getDatabase().prepare(`
     SELECT id, name, contact, appointment_date, appointment_time, practitioner,
       created_at, patient_id, checked_in_at, status

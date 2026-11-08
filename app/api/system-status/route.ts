@@ -1,5 +1,7 @@
 import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import { learningStatusItems } from '@/app/lib/learningStatus.server';
+import { demoKioskEnabled } from '@/app/lib/demoKiosk.server';
+import { learningDemoEnabled } from '@/app/lib/learningStore.server';
 import { getKioskRateLimitStatus } from '@/app/lib/kioskRateLimit.server';
 import { latestVerifiedBackup } from '@/app/lib/backupStatus.server';
 import { administratorAuthenticationConfigured, administratorDemoEnabled } from '@/app/lib/adminAuthentication.server';
@@ -70,7 +72,9 @@ const withDependencyGroups = <T extends { name: string; status: string; evidence
   items: T[],
   stripeWebhookConfigured: boolean,
 ) => items.map((item) => {
-  const dependency = dependencyGroups[item.name] ?? (item.name.startsWith('Demo learning:')
+  const dependency = dependencyGroups[item.name] ?? (item.name.startsWith('Demo kiosk:')
+    ? { dependencyGroup: 'Kiosk check-in', blockerCategory: 'Missing test evidence' as const }
+    : item.name.startsWith('Demo learning:')
     ? { dependencyGroup: 'Demo learner workspace', blockerCategory: 'Missing test evidence' as const }
     : { dependencyGroup: 'Core application', blockerCategory: null });
   let blockerCategory = item.status === 'Connected' ? null : dependency.blockerCategory;
@@ -100,7 +104,9 @@ const withDependencyGroups = <T extends { name: string; status: string; evidence
   const isFormatAdapter = item.name.startsWith('Application -> ')
     && item.evidence?.some((entry) => entry.startsWith('Development Simulation:'));
   let testSource = 'Application/runtime evidence; no separate end-to-end test recorded.';
-  if (item.name.startsWith('Demo learning:')) {
+  if (item.name.startsWith('Demo kiosk:')) {
+    testSource = 'Development-only code verification for allowlisted fictional patients. No SMS delivery or real patient identity was verified.';
+  } else if (item.name.startsWith('Demo learning:')) {
     testSource = 'Development learner-store records and audit-chain health; no separate browser test is recorded by this request. No approved CE credit is claimed.';
   } else if (isFormatAdapter) {
     testSource = 'Development Simulation';
@@ -262,6 +268,7 @@ export async function GET() {
   let latestAdministratorLogin: ReturnType<typeof getLatestAdministratorLoginEvent> = null;
   let latestBookingAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestKioskAudit: ReturnType<typeof getLatestAuditEvent> = null;
+  let latestDemoKioskAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestPatientRecordAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestStaffRecordAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestAdminAppointmentAudit: ReturnType<typeof getLatestAuditEvent> = null;
@@ -276,6 +283,7 @@ export async function GET() {
     latestAdministratorLogin = getLatestAdministratorLoginEvent();
     latestBookingAudit = getLatestAuditEvent('appointments', ['Appointment created']);
     latestKioskAudit = getLatestAuditEvent('check-in', ['Patient verification succeeded', 'Appointment lookup failed', 'Patient verification failed', 'Patient checked in', 'Check-in rejected', 'Duplicate check-in prevented']);
+    latestDemoKioskAudit = getLatestAuditEvent('check-in', ['Demo kiosk code verified']);
     latestPatientRecordAudit = getLatestAuditEvent('administration', ['Patient record created']);
     latestStaffRecordAudit = getLatestAuditEvent('administration', ['Staff record created']);
     latestAdminAppointmentAudit = getLatestAuditEvent('appointments', ['Admin appointment rescheduled', 'Admin appointment canceled']);
@@ -374,6 +382,7 @@ export async function GET() {
     environment: process.env.NODE_ENV === 'production' ? 'Production' : 'Development',
     stripeMode: paymentConfiguration.mode ?? 'unconfigured',
     developmentIntegrationSimulatorsEnabled: developmentIntegrationSimulatorsEnabled(),
+    developmentWorkflowFixturesEnabled: learningDemoEnabled() && demoKioskEnabled(),
     items: withDependencyGroups([
       ubuntuHostProbe,
       databaseServerProbe,
@@ -569,23 +578,28 @@ export async function GET() {
       },
       {
         kind: 'Connection',
-        name: 'Kiosk -> patient identity verification',
-        status: appointmentStoreStatus ? 'Partly Connected' : 'Failed',
-        description: appointmentStoreStatus
+        name: demoKioskEnabled() ? 'Demo kiosk: code verification -> appointment access' : 'Kiosk -> patient identity verification',
+        status: !appointmentStoreStatus || !auditStatus?.chainValid ? 'Failed' : demoKioskEnabled() && latestDemoKioskAudit ? 'Connected' : 'Partly Connected',
+        description: demoKioskEnabled()
+          ? 'Development-only phone-code verification is implemented for marked fictional patients. Codes are displayed locally; no SMS delivery or real patient identity is claimed.'
+          : appointmentStoreStatus
           ? 'The kiosk currently matches patients using only the last four phone digits; no strong identity provider is connected.'
           : 'Patient identity verification cannot reach its appointment store.',
-        connectedComponents: ['KioskClient', '/api/kiosk/lookup', 'SQLite clinic_patients'],
-        informationExchanged: 'Current screen submits last four phone digits. A future OIDC adapter receives iss, sub, aud, iat, exp, nonce, and email_verified claims; only after signature/issuer/audience/time/nonce checks may it return a limited patient and appointment summary with a short-lived single-use check-in token. Raw identity tokens are never returned or logged.',
+        connectedComponents: ['KioskClient', '/api/kiosk/demo-code', '/api/kiosk/lookup', 'SQLite clinic_patients and demo_kiosk_codes'],
+        informationExchanged: 'The demo uses last-four lookup, full-phone fallback for ambiguity, an expiring single-use code and a short-lived check-in token. Only allowlisted fictional patients are accepted. Real SMS verification still requires a selected provider.',
         evidence: [
           'Server-side lookup rejects malformed input and applies a shared SQLite request limit.',
           'Patient matching uses the durable clinic patient store; no provider assertion is accepted.',
           'The development adapter only checks documented OIDC claim shape; provider signature verification is not configured, and simulated claims never authenticate a patient.',
+          latestDemoKioskAudit ? `Fictional demo code verification reached appointment access at ${latestDemoKioskAudit.occurredAt}. This is not SMS or real-identity evidence.` : 'No fictional demo code verification has been recorded. Use Run demo setup.',
         ],
-        lastTestedAt: latestKioskAudit?.occurredAt ?? checkedAt,
-        missingRequirement: appointmentStoreStatus
+        lastTestedAt: demoKioskEnabled() ? latestDemoKioskAudit?.occurredAt ?? null : latestKioskAudit?.occurredAt ?? checkedAt,
+        missingRequirement: demoKioskEnabled()
+          ? latestDemoKioskAudit && auditStatus?.chainValid ? null : 'Use Run demo setup, then test the marked fictional patient through the demo kiosk code flow.'
+          : appointmentStoreStatus
           ? 'Connect a real patient identity provider and verify its assertion server-side; last-four matching is not strong authentication.'
           : 'Restore access to the server-side appointment database.',
-        safeErrorMessage: 'We could not verify your identity. Please see the front desk.',
+        safeErrorMessage: demoKioskEnabled() && latestDemoKioskAudit ? null : 'We could not verify your identity. Please see the front desk.',
       },
       {
         kind: 'Connection',
@@ -798,12 +812,12 @@ export async function GET() {
         kind: 'Connection',
         name: 'Patient identity provider -> kiosk verification',
         status: 'Planned',
-        description: 'Patient lookup uses the durable SQLite patient store; no identity-provider service is connected.',
-        connectedComponents: ['Patient identity provider', 'kiosk lookup API'],
-        informationExchanged: 'A future provider assertion would be verified server-side without storing or logging its secret.',
-        evidence: ['No identity-provider client, callback, or server assertion verifier exists in the project.'],
+        description: 'The fictional demo code flow is available; a real SMS verification provider is not connected.',
+        connectedComponents: ['Future SMS verification provider', 'kiosk verification API'],
+        informationExchanged: 'The selected SMS service must deliver codes to the registered phone and confirm them server-side before real appointment access.',
+        evidence: ['The current demo displays codes only for marked fictional patients and does not send an SMS or prove possession of a real phone.'],
         lastTestedAt: null,
-        missingRequirement: 'Select and configure an identity provider, then implement server-side assertion validation.',
+        missingRequirement: 'Select an SMS verification provider and configure/test real code delivery and server-side verification.',
         safeErrorMessage: 'We could not verify your identity. Please see the front desk.',
       },
       {

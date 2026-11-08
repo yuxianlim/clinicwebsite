@@ -4,6 +4,23 @@ This is a development-only preview for fictional learner data. Hosting and clini
 
 ## Start on Windows / VS Code
 
+### Fastest: connect all available demo workflows with fictional data
+
+Keep these existing development flags in `.env.local`, then restart `npm run dev`:
+
+```dotenv
+ENABLE_DEVELOPMENT_CEU_DEMO=true
+ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS=true
+```
+
+Sign in to the staff portal and open **System Status → Run demo setup**. This admin-only action creates a fictional learner, one marked purchase fixture, generated full-video progress, a server-graded passing final exam and a generated sample certificate. It also creates an allowlisted fictional kiosk patient and today's appointment, verifies a demo code challenge, and runs the five documented-format simulations. The dashboard refreshes automatically and shows these demo connections as Connected when their records are verified.
+
+The result displays a fictional learner email and the public demo-only password, plus a fictional phone number. Use those to browse `/learn` or choose **Try demo phone verification** at `/kiosk`. Codes appear on the demo screen for fictional patients only; no SMS is sent. Ambiguous last-four matches require the full phone number. Codes expire after five minutes, allow at most five attempts and can be used once. The existing single-use appointment check-in token is still required.
+
+Setup reuses its learner/course records on repeat runs. It creates no Stripe intent, payment or verified Stripe event. Fixture purchases have a separate marker; account history, receipts, certificates and dashboard evidence label the generated source explicitly. Fixture progress does not represent observed human attendance. No genuine SMS verification, physical scanner, server monitoring or approved CE credit is claimed, and all fixture creation/verification APIs are disabled in production. Existing real Stripe verification statuses are unaffected.
+
+### Optional: manually test the genuine Stripe sandbox path
+
 1. Update the project code, keeping your existing `.env.local` and `.data` directory.
 2. Add this line to `.env.local`:
 
@@ -45,7 +62,7 @@ After all three attempts in a block fail, wait seven days from the third failure
 
 Learner accounts, hashed credentials, sessions, purchases, video progress, final-exam results and demo certificates use the existing audit SQLite database. Existing database backups therefore include these records. Sessions are bound to the session secret; rotate it after disaster recovery as described in the backup runbook.
 
-Card details remain in Stripe. Only a matching signature-verified **sandbox** payment unlocks a course. Learning payment audit events are explicitly labeled demo and do not establish approved enrollment/certificate issuance in System Status. Payment, exam and certificate changes use SQLite transactions. Repeated webhook deliveries and repeated exam submission references are idempotent. Receipts and certificates are restricted to their owning account.
+Card details remain in Stripe. The manual payment path unlocks a course only after a matching signature-verified **sandbox** event. The separate explicit admin fixture path uses a marked fictional purchase and never invents a provider event. Audit actions distinguish provider-verified sandbox purchases from fictional fixture purchases. Neither establishes approved enrollment/certificate issuance in System Status. Payment, exam and certificate changes use SQLite transactions. Repeated webhook deliveries and repeated exam submission references are idempotent. Receipts and certificates are restricted to their owning account.
 
 Browser progress checks discourage seeking and implausible jumps; they cannot prove attention or substitute for licensing-board-approved attendance controls. Quiz keys stay server-side. Sample course content teaches the demonstration workflow, not clinical practice.
 
@@ -56,7 +73,7 @@ System Status has five separate **Demo learner workspace** rows for stored accou
 - Actual provider and per-course approval details, credit hours, instructional videos, validated assessment content and certificate requirements.
 - Approved tax, invoice, cancellation and refund policy. Demo payment receipts are not tax invoices; automatic refunds have not been invented or enabled.
 - Email verification, password recovery and production learner-account operations. The entire demo API is disabled in production regardless of its feature flag.
-- Ubuntu hosting, SMS verification service, physical membership scanner, monitoring, off-site backup destination, scheduling and retention choices.
+- Ubuntu hosting, real SMS verification service, physical membership scanner, monitoring, off-site backup destination, scheduling and retention choices. The code-challenge fixture is not real phone-possession verification.
 - Clinic billing remains deferred by request.
 
 Automated tests use disposable records and locally signed fictional webhook fixtures. They do not contact Stripe or establish real provider connectivity. Test the new checkout with your actual sandbox keys and listener on your Windows copy.

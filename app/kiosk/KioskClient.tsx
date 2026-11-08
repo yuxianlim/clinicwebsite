@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { practitionerLabel } from '@/app/lib/practitionerLabels';
 import { useBooking } from '@/app/context/BookingContext';
 
-type KioskStep = 'start' | 'phone' | 'scan' | 'confirm' | 'success';
+type KioskStep = 'start' | 'phone' | 'code' | 'scan' | 'confirm' | 'success';
 
 type KioskPatient = { id: string; name: string };
 type KioskAppointment = { id: string; date: string; time: string; practitioner: string };
@@ -16,7 +16,7 @@ type KioskLookupResponse = {
   error?: string;
 };
 
-export default function KioskClient() {
+export default function KioskClient({ demoVerificationEnabled = false }: { demoVerificationEnabled?: boolean }) {
   const { syncAppointmentCheckIn } = useBooking();
   const [step, setStep] = useState<KioskStep>('start');
   const [lastFour, setLastFour] = useState('');
@@ -25,6 +25,12 @@ export default function KioskClient() {
   const [checkInToken, setCheckInToken] = useState('');
   const [message, setMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [demoFlow, setDemoFlow] = useState(false);
+  const [fullPhone, setFullPhone] = useState('');
+  const [needsFullPhone, setNeedsFullPhone] = useState(false);
+  const [challengeId, setChallengeId] = useState('');
+  const [demoCode, setDemoCode] = useState('');
+  const [code, setCode] = useState('');
 
   const resetKiosk = () => {
     setStep('start');
@@ -34,6 +40,7 @@ export default function KioskClient() {
     setCheckInToken('');
     setMessage('');
     setIsSaving(false);
+    setDemoFlow(false); setFullPhone(''); setNeedsFullPhone(false); setChallengeId(''); setDemoCode(''); setCode('');
   };
 
   const showPhoneLookup = () => {
@@ -51,6 +58,13 @@ export default function KioskClient() {
     setIsSaving(true);
     setMessage('');
     try {
+      if (demoFlow) {
+        const response = await fetch('/api/kiosk/demo-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'request', lastFour: normalizedLastFour, ...(needsFullPhone ? { fullPhone } : {}) }) });
+        const data = await response.json();
+        if (!response.ok) { setMessage(data.error ?? 'Demo code could not be created.'); return; }
+        if (data.requiresFullPhone) { setNeedsFullPhone(true); setMessage('Several records share these last four digits. Enter the full phone number.'); return; }
+        setChallengeId(data.challengeId); setDemoCode(data.demoCode); setCode(''); setStep('code'); return;
+      }
       const response = await fetch('/api/kiosk/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,6 +84,17 @@ export default function KioskClient() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const verifyCode = async () => {
+    setIsSaving(true); setMessage('');
+    try {
+      const response = await fetch('/api/kiosk/demo-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify', challengeId, code }) });
+      const data = await response.json() as KioskLookupResponse;
+      if (!response.ok || !data.patient || !data.appointment || !data.checkInToken) { setMessage(data.error ?? 'The demo code could not be verified.'); return; }
+      setPatient(data.patient); setAppointment(data.appointment); setCheckInToken(data.checkInToken); setStep('confirm');
+    } catch { setMessage('Demo verification is temporarily unavailable.'); }
+    finally { setIsSaving(false); }
   };
 
   const confirmCheckIn = async () => {
@@ -120,6 +145,7 @@ export default function KioskClient() {
                 <p className="mt-5 max-w-xl text-lg leading-8 text-[#657184]">Choose how to find your appointment. Looking up your appointment will not check you in.</p>
               </div>
               <div className="mt-10 grid gap-4 sm:grid-cols-2">
+                {demoVerificationEnabled && <button onClick={() => { setDemoFlow(true); showPhoneLookup(); }} className="min-h-28 rounded-2xl border-2 border-amber-300 bg-amber-50 p-6 text-left"><span className="block text-xl font-semibold">Try demo phone verification</span><span className="mt-2 block text-sm">Fictional patients only. Demo code is displayed locally; no SMS is sent.</span></button>}
                 <button onClick={showPhoneLookup} className="min-h-36 rounded-2xl border-2 border-[#3158d8] bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <span className="text-3xl" aria-hidden="true">⌕</span>
                   <span className="mt-5 block text-xl font-semibold">Enter last four phone digits</span>
@@ -150,6 +176,8 @@ export default function KioskClient() {
               <p className="mt-3 text-[#657184]">Enter the last four digits of the phone number on your patient record.</p>
               <label className="mt-8 block text-sm font-semibold" htmlFor="last-four">Last four digits</label>
               <input id="last-four" autoFocus inputMode="numeric" maxLength={4} value={lastFour} onChange={(event) => setLastFour(event.target.value.replace(/\D/g, ''))} className="mt-2 h-16 w-full rounded-xl border-2 border-[#dce1e8] px-5 text-center text-3xl tracking-[0.5em] outline-none focus:border-[#3158d8]" />
+              {demoFlow && <p className="mt-3 text-sm text-amber-900">Development demo: use the fictional phone number provided by Run demo setup.</p>}
+              {needsFullPhone && <label className="mt-4 block text-sm font-semibold">Full phone number<input className="mt-2 min-h-14 w-full rounded-xl border-2 border-[#dce1e8] px-4 text-lg" inputMode="tel" value={fullPhone} onChange={(event) => setFullPhone(event.target.value)} maxLength={20} /></label>}
               {message && <p className="mt-4 rounded-xl border border-[#e0b7ad] bg-[#fff5f2] p-4 text-sm text-[#8a4437]">{message}</p>}
               <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                 <button onClick={resetKiosk} className="rounded-xl px-5 py-4 font-semibold text-[#3158d8] hover:bg-[#f6f5f1]">Cancel</button>
@@ -157,6 +185,14 @@ export default function KioskClient() {
               </div>
             </div>
           )}
+
+          {step === 'code' && <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-5 shadow-sm sm:p-10">
+            <h2 className="text-3xl font-semibold">Enter your demo verification code</h2>
+            <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm leading-7">Fictional demo only. No SMS was sent. Your demo code is <strong data-testid="demo-kiosk-code">{demoCode}</strong>. It expires in five minutes and can be used once.</p>
+            <label className="mt-5 block font-semibold">Six-digit demo code<input className="mt-2 min-h-16 w-full rounded-xl border-2 border-[#dce1e8] px-4 text-center text-2xl tracking-widest" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} /></label>
+            {message && <p className="mt-4 text-sm text-rose-700" role="alert">{message}</p>}
+            <div className="mt-6 flex flex-wrap gap-3"><button className="min-h-12 rounded-xl px-5 font-semibold text-[#3158d8]" onClick={resetKiosk}>Cancel</button><button className="min-h-12 rounded-xl bg-[#3158d8] px-5 font-semibold text-white disabled:opacity-50" disabled={isSaving || code.length !== 6} onClick={() => void verifyCode()}>{isSaving ? 'Verifying…' : 'Verify demo code'}</button></div>
+          </div>}
 
           {step === 'scan' && (
             <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-5 shadow-sm sm:p-10">

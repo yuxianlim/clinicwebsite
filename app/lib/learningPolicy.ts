@@ -19,9 +19,10 @@ export type LearningCourseState = LearningCourse & {
   block: number; nextPrice: number; attemptsUsed: number; lastScore: number | null;
   purchaseId: string | null; paid: boolean; watched: Record<string, number>;
   retryAt: string | null; certificateId: string | null;
+  fixture: boolean;
 };
 export type LearningAccount = {
   user: { id: string; name: string; email: string };
   courses: LearningCourseState[];
-  payments: { id: string; courseTitle: string; block: number; amount: number; paidAt: string | null }[];
+  payments: { id: string; courseTitle: string; block: number; amount: number; paidAt: string | null; fixture: boolean }[];
 };

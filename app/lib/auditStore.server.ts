@@ -40,6 +40,8 @@ const safeSummaries: Record<string, string> = {
   'ceu:Demo course payment verified': 'A signed Stripe sandbox event confirmed a demo learning purchase; no real CE credit was awarded.',
   'ceu:Demo final exam submitted': 'A demo final exam result was stored; no answers or learner details are included.',
   'ceu:Demo certificate issued': 'A clearly labeled non-credit demo completion document was issued.',
+  'ceu:Demo fixture purchase recorded': 'An explicitly fictional development purchase fixture was stored; no Stripe event or payment was claimed.',
+  'check-in:Demo kiosk code verified': 'A development-only code challenge for a marked fictional patient was verified; no SMS or real identity verification was claimed.',
   'authentication:Administrator login succeeded': 'Administrator authentication succeeded.',
   'authentication:Administrator login failed': 'An administrator login attempt failed.',
   'authentication:Administrator logout': 'An administrator session was ended.',
@@ -366,8 +368,9 @@ const appendAuditEventInTransaction = (database: DatabaseSync, input: NewAuditEv
 
 // Learning records share the backed-up audit database and atomic audit writes.
 export const learningDatabase = getDatabase;
-export const appendLearningAudit = (action: 'Demo course payment verified' | 'Demo final exam submitted' | 'Demo certificate issued', recordId: string) =>
+export const appendLearningAudit = (action: 'Demo course payment verified' | 'Demo final exam submitted' | 'Demo certificate issued' | 'Demo fixture purchase recorded', recordId: string) =>
   appendAuditEventInTransaction(getDatabase(), { module: 'ceu', action, relatedRecordId: recordId, result: 'success', sessionId: null });
+export const appendDemoKioskAudit = () => appendAuditEventInTransaction(getDatabase(), { module: 'check-in', action: 'Demo kiosk code verified', relatedRecordId: 'development-kiosk-code', result: 'success', sessionId: null });
 
 type PatientRow = {
     id: string;

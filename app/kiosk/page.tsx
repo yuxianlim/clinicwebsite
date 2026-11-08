@@ -1,4 +1,5 @@
 import KioskClient from './KioskClient';
+import { demoKioskEnabled } from '@/app/lib/demoKiosk.server';
 
 export const metadata = {
   title: 'Patient Check-in Kiosk',
@@ -6,5 +7,5 @@ export const metadata = {
 };
 
 export default function KioskPage() {
-  return <KioskClient />;
+  return <KioskClient demoVerificationEnabled={demoKioskEnabled()} />;
 }

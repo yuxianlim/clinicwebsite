@@ -26,6 +26,7 @@ export default defineConfig({
     { name: 'workflows', testMatch: '**/clinic-workflows.spec.ts', use: { viewport: { width: 1440, height: 900 } } },
     { name: 'learning', testMatch: '**/learning.spec.ts', use: { viewport: { width: 390, height: 844 } } },
     { name: 'live-status', testMatch: '**/status-live.spec.ts', use: { viewport: { width: 1280, height: 800 } } },
+    { name: 'demo-setup', testMatch: '**/demo-setup.spec.ts', use: { viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
     command: 'npm run dev -- --hostname 127.0.0.1 --port 3102', url: 'http://127.0.0.1:3102', reuseExistingServer: false,

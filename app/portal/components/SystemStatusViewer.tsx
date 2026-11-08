@@ -44,6 +44,7 @@ type SystemStatus = {
   environment: string;
   stripeMode?: 'test' | 'live' | 'unconfigured';
   developmentIntegrationSimulatorsEnabled?: boolean;
+  developmentWorkflowFixturesEnabled?: boolean;
   items: SystemItem[];
 };
 
@@ -57,6 +58,8 @@ const isSystemStatus = (value: unknown): value is SystemStatus => {
     && typeof candidate.environment === 'string'
     && (candidate.developmentIntegrationSimulatorsEnabled === undefined
       || typeof candidate.developmentIntegrationSimulatorsEnabled === 'boolean')
+    && (candidate.developmentWorkflowFixturesEnabled === undefined
+      || typeof candidate.developmentWorkflowFixturesEnabled === 'boolean')
     && Array.isArray(candidate.items)
     && candidate.items.every((item) => (
       item !== null
@@ -154,6 +157,9 @@ export default function SystemStatusViewer() {
   const [integrationTestResults, setIntegrationTestResults] = useState<IntegrationSimulationResult[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [query, setQuery] = useState('');
+  const [seedingDemo, setSeedingDemo] = useState(false);
+  const [demoError, setDemoError] = useState('');
+  const [demoResult, setDemoResult] = useState<{ learner: { email: string; password: string }; kiosk: { phone: string; lastFour: string }; message: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -271,6 +277,17 @@ export default function SystemStatusViewer() {
     }
   };
 
+  const runDemoSetup = async () => {
+    setSeedingDemo(true); setDemoError('');
+    try {
+      const response = await fetch('/api/system-status/demo-setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? 'Demo setup could not complete.');
+      setDemoResult(data);
+    } catch (error) { setDemoError(error instanceof Error ? error.message : 'Demo setup failed.'); }
+    finally { setSeedingDemo(false); setRefreshKey((current) => current + 1); }
+  };
+
   const runIntegrationSimulations = async () => {
     setIntegrationTestsRunning(true);
     setIntegrationTestError('');
@@ -341,6 +358,18 @@ export default function SystemStatusViewer() {
             </ul>
           </details>
         ) : null}
+        {systemStatus?.developmentWorkflowFixturesEnabled && <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <h4 className="font-semibold text-amber-950">Connect the demo workflows</h4>
+          <p className="mt-2 text-sm leading-6 text-amber-950">Create a fictional learner, purchase fixture, completed-video records, a passing exam, a sample certificate and a fictional kiosk code check. Also run the five development format checks. No Stripe payment, SMS delivery or approved CE credit is claimed. Existing demo setup records are reused.</p>
+          <button className="mt-4 min-h-12 rounded-xl bg-[#3158d8] px-5 py-3 font-semibold text-white disabled:opacity-50" disabled={seedingDemo} onClick={() => void runDemoSetup()}>{seedingDemo ? 'Preparing demo records…' : 'Run demo setup'}</button>
+          {demoError && <p className="mt-3 text-sm text-rose-800" role="alert">{demoError}</p>}
+          {demoResult && <div className="mt-4 space-y-3 text-sm leading-6 text-amber-950" role="status">
+            <p>{demoResult.message}</p>
+            <p className="break-all">Fictional learner email: <strong>{demoResult.learner.email}</strong><br />Demo-only password: <strong>{demoResult.learner.password}</strong></p>
+            <p>Fictional patient phone: <strong>{demoResult.kiosk.phone}</strong> · Last four: <strong>{demoResult.kiosk.lastFour}</strong></p>
+            <div className="flex flex-wrap gap-4"><a href="/learn" target="_blank" rel="noopener noreferrer" className="min-h-11 py-3 font-semibold text-[#3158d8]">Open demo learner workspace ↗</a><a href="/kiosk" target="_blank" rel="noopener noreferrer" className="min-h-11 py-3 font-semibold text-[#3158d8]">Open demo kiosk ↗</a></div>
+          </div>}
+        </div>}
         {systemStatus?.items.some((item) => item.testAction === 'stripe-test') ? (
           <button
             type="button"

@@ -33,6 +33,8 @@ const db = () => {
       purchase_id TEXT NOT NULL REFERENCES learning_purchases(id), issued_at TEXT NOT NULL, learner_name TEXT NOT NULL,
       UNIQUE(user_id, course_id));
     CREATE TABLE IF NOT EXISTS learning_stripe_events (id TEXT PRIMARY KEY, purchase_id TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS learning_fixture_purchases (purchase_id TEXT PRIMARY KEY REFERENCES learning_purchases(id));
+    CREATE TABLE IF NOT EXISTS learning_fixture_runs (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES learning_users(id));
   `);
   return database;
 };
@@ -47,6 +49,7 @@ const latest = (userId: string, courseId: string) => db().prepare('SELECT * FROM
 const attempts = (purchaseId: string) => db().prepare('SELECT score, occurred_at FROM learning_attempts WHERE purchase_id = ? ORDER BY occurred_at').all(purchaseId) as Attempt[];
 const certificate = (userId: string, courseId: string) => db().prepare('SELECT id FROM learning_certificates WHERE user_id = ? AND course_id = ?').get(userId, courseId) as { id: string } | undefined;
 const watch = (purchaseId: string) => Object.fromEntries((db().prepare('SELECT lesson_id, watched FROM learning_watch WHERE purchase_id = ?').all(purchaseId) as { lesson_id: string; watched: number }[]).map((row) => [row.lesson_id, row.watched]));
+const fixturePurchase = (id: string) => Boolean(db().prepare('SELECT 1 FROM learning_fixture_purchases WHERE purchase_id = ?').get(id));
 const paidPurchase = (userId: string, courseId: string) => {
   const purchase = latest(userId, courseId);
   if (!purchase?.paid_at) return fail('A verified sandbox purchase is required before starting this course.');
@@ -95,9 +98,9 @@ export const learningAccount = (user: Pick<User, 'id' | 'name' | 'email'>, now =
       questions: purchase?.paid_at ? course.questions : [], block, nextPrice: purchase && exhausted ? learningBlockPrice(purchase.original_price, block + 1) : purchase?.amount ?? course.price,
       attemptsUsed: results.length, lastScore: results.at(-1)?.score ?? null, purchaseId: purchase?.id ?? null, paid: Boolean(purchase?.paid_at),
       watched: purchase ? watch(purchase.id) : {}, retryAt: retryAt && retryAt > now ? new Date(retryAt).toISOString() : null,
-      certificateId: certificate(user.id, course.id)?.id ?? null };
+      certificateId: certificate(user.id, course.id)?.id ?? null, fixture: purchase ? fixturePurchase(purchase.id) : false };
   }),
-  payments: (db().prepare('SELECT * FROM learning_purchases WHERE user_id = ? ORDER BY rowid DESC').all(user.id) as Purchase[]).map((row) => ({ id: row.id, courseTitle: courseById(row.course_id).title, block: row.block, amount: row.amount, paidAt: row.paid_at })),
+  payments: (db().prepare('SELECT * FROM learning_purchases WHERE user_id = ? ORDER BY rowid DESC').all(user.id) as Purchase[]).map((row) => ({ id: row.id, courseTitle: courseById(row.course_id).title, block: row.block, amount: row.amount, paidAt: row.paid_at, fixture: fixturePurchase(row.id) })),
 });
 
 /** Reserve once, then use this ID as Stripe's idempotency key across network retries. */
@@ -125,7 +128,7 @@ export const linkLearningIntent = (purchaseId: string, intentId: string) => {
 /** Called only after Stripe signature verification; fixtures use disposable databases. */
 export const acceptLearningPayment = (input: { purchaseId: string; intentId: string; eventId: string; amount: number; currency: string; livemode: boolean }, now = Date.now()) => atomic(() => {
   const purchase = db().prepare('SELECT * FROM learning_purchases WHERE id = ?').get(input.purchaseId) as Purchase | undefined;
-  if (!purchase || input.livemode || input.currency !== 'usd' || purchase.amount !== input.amount || purchase.intent_id !== input.intentId)
+  if (!purchase || fixturePurchase(purchase.id) || input.livemode || input.currency !== 'usd' || purchase.amount !== input.amount || purchase.intent_id !== input.intentId)
     return fail('The sandbox payment does not match its learning purchase.');
   if (db().prepare('SELECT 1 FROM learning_stripe_events WHERE id = ?').get(input.eventId)) return false;
   db().prepare('INSERT INTO learning_stripe_events VALUES (?, ?)').run(input.eventId, purchase.id);
@@ -179,11 +182,13 @@ export const learningDocument = (userId: string, kind: string, id: string) => {
   if (kind === 'certificate') {
     const row = db().prepare('SELECT * FROM learning_certificates WHERE id = ? AND user_id = ?').get(id, userId) as { id: string; learner_name: string; course_id: string; issued_at: string } | undefined;
     if (!row) return fail('Certificate not found.');
-    return { title: 'Demo completion certificate', name: row.learner_name, course: courseById(row.course_id).title, date: row.issued_at, reference: row.id, amount: null };
+    const fixture = fixturePurchase((db().prepare('SELECT purchase_id FROM learning_certificates WHERE id = ?').get(id) as { purchase_id: string }).purchase_id);
+    return { title: fixture ? 'Fixture completion sample' : 'Demo completion certificate', name: row.learner_name, course: courseById(row.course_id).title, date: row.issued_at, reference: row.id, amount: null, fixture };
   }
   const row = db().prepare('SELECT p.*, u.name FROM learning_purchases p JOIN learning_users u ON u.id = p.user_id WHERE p.id = ? AND p.user_id = ? AND p.paid_at IS NOT NULL').get(id, userId) as (Purchase & { name: string }) | undefined;
   if (!row) return fail('Payment receipt not found.');
-  return { title: 'Sandbox payment receipt', name: row.name, course: courseById(row.course_id).title, date: row.paid_at!, reference: row.id, amount: row.amount };
+  const fixture = fixturePurchase(row.id);
+  return { title: fixture ? 'Fictional purchase receipt' : 'Sandbox payment receipt', name: row.name, course: courseById(row.course_id).title, date: row.paid_at!, reference: row.id, amount: row.amount, fixture };
 };
 
 /** Admin status evidence only: counts/timestamps, never learner identifiers or answers. */
@@ -191,7 +196,8 @@ export const learningEvidence = () => {
   const database = db();
   const accounts = (database.prepare('SELECT count(*) AS count FROM learning_users').get() as { count: number }).count;
   const purchases = database.prepare(`SELECT p.* FROM learning_purchases p WHERE p.paid_at IS NOT NULL
-    AND EXISTS (SELECT 1 FROM learning_stripe_events e WHERE e.purchase_id = p.id)`).all() as Purchase[];
+    AND (EXISTS (SELECT 1 FROM learning_stripe_events e WHERE e.purchase_id = p.id)
+      OR EXISTS (SELECT 1 FROM learning_fixture_purchases f WHERE f.purchase_id = p.id))`).all() as Purchase[];
   const paidIds = new Set(purchases.map((purchase) => purchase.id));
   const completedIds = new Set(purchases.filter((purchase) => {
     const course = demoCourses.find((item) => item.id === purchase.course_id);
@@ -205,11 +211,43 @@ export const learningEvidence = () => {
   const videoTimes = (database.prepare('SELECT purchase_id, heartbeat FROM learning_watch WHERE watched > 0').all() as { purchase_id: string; heartbeat: number }[])
     .filter((item) => completedIds.has(item.purchase_id)).map((item) => item.heartbeat);
   return {
-    accounts, paidPurchases: purchases.length, completedVideoBlocks: completedIds.size,
+    accounts, paidPurchases: purchases.length, fixturePurchases: purchases.filter((item) => fixturePurchase(item.id)).length, completedVideoBlocks: completedIds.size,
     examAttempts: exams.length, certificates: certificates.length,
     lastPaymentAt: purchases.map((item) => item.paid_at!).sort().at(-1) ?? null,
     lastVideoAt: videoTimes.length ? new Date(Math.max(...videoTimes)).toISOString() : null,
     lastExamAt: exams.length ? new Date(Math.max(...exams.map((exam) => exam.occurred_at))).toISOString() : null,
     lastCertificateAt: certificates.map((item) => item.issued_at).sort().at(-1) ?? null,
   };
+};
+
+/** Explicit admin-triggered fictional data. Never creates a Stripe event or
+ * represents generated progress as observed human attendance. */
+export const seedLearningFixtures = () => {
+  if (!learningDemoEnabled() || process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS !== 'true') return fail('Development fixture setup is disabled.');
+  const result = atomic(() => {
+    const marker = db().prepare('SELECT user_id FROM learning_fixture_runs WHERE id = ?').get('learning-v1') as { user_id: string } | undefined;
+    const password = 'DemoLearning!2026';
+    const user = marker
+      ? db().prepare('SELECT * FROM learning_users WHERE id = ?').get(marker.user_id) as User
+      : createLearner('Fictional Demo Learner', `demo-${randomUUID()}@example.invalid`, password);
+    if (!marker) db().prepare('INSERT INTO learning_fixture_runs VALUES (?, ?)').run('learning-v1', user.id);
+    const course = demoCourses[0];
+    let purchase = latest(user.id, course.id);
+    if (!purchase) {
+      const id = randomUUID();
+      db().prepare('INSERT INTO learning_purchases (id, user_id, course_id, block, original_price, amount) VALUES (?, ?, ?, 1, ?, ?)').run(id, user.id, course.id, course.price, course.price);
+      purchase = latest(user.id, course.id)!;
+    }
+    if (purchase.intent_id) return fail('Fixture setup refuses to change a Stripe-linked purchase.');
+    if (!fixturePurchase(purchase.id)) {
+      db().prepare('INSERT INTO learning_fixture_purchases VALUES (?)').run(purchase.id);
+      db().prepare('UPDATE learning_purchases SET paid_at = ? WHERE id = ?').run(new Date().toISOString(), purchase.id);
+      appendLearningAudit('Demo fixture purchase recorded', purchase.id);
+    }
+    for (const lesson of course.lessons) db().prepare(`INSERT INTO learning_watch (purchase_id, lesson_id, watched, heartbeat) VALUES (?, ?, ?, ?)
+      ON CONFLICT(purchase_id, lesson_id) DO UPDATE SET watched = excluded.watched, heartbeat = excluded.heartbeat`).run(purchase.id, lesson.id, lesson.seconds, Date.now());
+    return { user, password, purchase, course };
+  });
+  submitLearningExam(result.user.id, result.course.id, demoAnswerKey, result.purchase.id);
+  return { email: result.user.email, password: result.password, courseId: result.course.id };
 };
