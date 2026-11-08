@@ -185,3 +185,31 @@ export const learningDocument = (userId: string, kind: string, id: string) => {
   if (!row) return fail('Payment receipt not found.');
   return { title: 'Sandbox payment receipt', name: row.name, course: courseById(row.course_id).title, date: row.paid_at!, reference: row.id, amount: row.amount };
 };
+
+/** Admin status evidence only: counts/timestamps, never learner identifiers or answers. */
+export const learningEvidence = () => {
+  const database = db();
+  const accounts = (database.prepare('SELECT count(*) AS count FROM learning_users').get() as { count: number }).count;
+  const purchases = database.prepare(`SELECT p.* FROM learning_purchases p WHERE p.paid_at IS NOT NULL
+    AND EXISTS (SELECT 1 FROM learning_stripe_events e WHERE e.purchase_id = p.id)`).all() as Purchase[];
+  const paidIds = new Set(purchases.map((purchase) => purchase.id));
+  const completedIds = new Set(purchases.filter((purchase) => {
+    const course = demoCourses.find((item) => item.id === purchase.course_id);
+    const progress = watch(purchase.id);
+    return course?.lessons.every((lesson) => progress[lesson.id] >= lesson.seconds);
+  }).map((purchase) => purchase.id));
+  const exams = (database.prepare('SELECT purchase_id, score, occurred_at FROM learning_attempts').all() as (Attempt & { purchase_id: string })[])
+    .filter((exam) => paidIds.has(exam.purchase_id));
+  const certificates = (database.prepare('SELECT purchase_id, issued_at FROM learning_certificates').all() as { purchase_id: string; issued_at: string }[])
+    .filter((item) => completedIds.has(item.purchase_id) && exams.some((exam) => exam.purchase_id === item.purchase_id && exam.score >= passingPercent));
+  const videoTimes = (database.prepare('SELECT purchase_id, heartbeat FROM learning_watch WHERE watched > 0').all() as { purchase_id: string; heartbeat: number }[])
+    .filter((item) => completedIds.has(item.purchase_id)).map((item) => item.heartbeat);
+  return {
+    accounts, paidPurchases: purchases.length, completedVideoBlocks: completedIds.size,
+    examAttempts: exams.length, certificates: certificates.length,
+    lastPaymentAt: purchases.map((item) => item.paid_at!).sort().at(-1) ?? null,
+    lastVideoAt: videoTimes.length ? new Date(Math.max(...videoTimes)).toISOString() : null,
+    lastExamAt: exams.length ? new Date(Math.max(...exams.map((exam) => exam.occurred_at))).toISOString() : null,
+    lastCertificateAt: certificates.map((item) => item.issued_at).sort().at(-1) ?? null,
+  };
+};

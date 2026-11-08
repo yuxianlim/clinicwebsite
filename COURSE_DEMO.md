@@ -49,6 +49,8 @@ Card details remain in Stripe. Only a matching signature-verified **sandbox** pa
 
 Browser progress checks discourage seeking and implausible jumps; they cannot prove attention or substitute for licensing-board-approved attendance controls. Quiz keys stay server-side. Sample course content teaches the demonstration workflow, not clinical practice.
 
+System Status has five separate **Demo learner workspace** rows for stored accounts, verified sandbox purchases, full video completion, stored exam grading and non-credit certificates. Each connects only after matching records exist in this application's database. The approved-credit certificate row remains Planned until approval details and real content are configured. Format simulations remain separate from real providers, and the Stripe API probe needs refreshing after 15 minutes; this expiration does not remove earlier payment/enrollment evidence.
+
 ## Pending before real learners or real credit
 
 - Actual provider and per-course approval details, credit hours, instructional videos, validated assessment content and certificate requirements.

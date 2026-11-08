@@ -5,6 +5,12 @@ import Stripe from 'stripe';
 test('learner accounts gate content, signed sandbox payment unlocks videos, and a 90% exam earns a non-credit demo certificate', async ({ page, context }, testInfo) => {
   test.setTimeout(120_000);
   expect((await context.request.get('/api/learning')).status()).toBe(401);
+  expect((await context.request.post('/api/clinic/session', { data: { email: 'learning-status@example.invalid', password: 'development-status-check', method: 'email' } })).status()).toBe(200);
+  const initialStatus = await (await context.request.get('/api/system-status')).json();
+  const initialDemoRows = initialStatus.items.filter((item: { name: string }) => item.name.startsWith('Demo learning:'));
+  expect(initialDemoRows).toHaveLength(5);
+  for (const item of initialDemoRows) expect(item.status).toBe('Partly Connected');
+  expect((await context.request.get('/api/learning')).status()).toBe(401); // Admin is not a learner session.
   expect((await context.request.post('/api/learning', { headers: { origin: 'https://unrelated.example.invalid' }, data: { action: 'register' } })).status()).toBe(403);
   await page.goto('/learn');
   await expect(page.getByText('Learning workspace orientation', { exact: true })).toHaveCount(0);
@@ -55,6 +61,15 @@ test('learner accounts gate content, signed sandbox payment unlocks videos, and 
   const certificateDocument = await context.request.get(`/api/learning/document?kind=certificate&id=${certificateId}`);
   expect(certificateDocument.status()).toBe(200);
   expect(await certificateDocument.text()).toContain('NO APPROVED CE CREDIT');
+  const report = await (await context.request.get('/api/system-status')).json();
+  const demoRows = report.items.filter((item: { name: string }) => item.name.startsWith('Demo learning:'));
+  expect(demoRows).toHaveLength(5);
+  for (const item of demoRows) {
+    expect(item.status).toBe('Connected');
+    expect(item.dependencyGroup).toBe('Demo learner workspace');
+  }
+  expect(JSON.stringify(demoRows)).not.toContain('demo-learner@example.invalid');
+  expect(report.items.find((item: { name: string }) => item.name === 'CEU completion/attendance -> certificate issuance').status).toBe('Planned');
   await page.setViewportSize({ width: 320, height: 740 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('demo-learning-mobile.png'), fullPage: true });

@@ -240,6 +240,7 @@ export default function SystemStatusViewer() {
               </a>
             ))}
           </nav>
+          <p className="text-sm leading-6 text-slate-600">Planned items are deferred or need implementation, service setup, hardware or approvals. Unknown means a check has not run or its result has expired. Demo learning has separate evidence rows; simulations do not connect real services.</p>
           <label className="block text-sm font-medium text-slate-700">
             Search connections
             <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Component, service, or missing requirement" className="mt-2 min-h-11 w-full rounded-lg border border-[#dce1e8] bg-white px-3 text-base text-slate-900 placeholder:text-slate-600" />
@@ -250,7 +251,7 @@ export default function SystemStatusViewer() {
         {systemStatus ? (
           <details className="mt-4 rounded-xl border border-[#dce1e8] bg-white p-4">
             <summary className="min-h-11 font-semibold text-slate-900">Workflow evidence state <span className="ml-2 text-xs font-normal text-slate-600">Expand overview</span></summary>
-            <p className="mt-2 text-sm text-slate-600">Connected requires verifiable evidence. Not tested means no runtime result is available. Planned means required but not implemented, with no delivery date implied.</p>
+            <p className="mt-2 text-sm text-slate-600">Connected reflects the evidence described in each row. Planned means a workflow is deferred or still needs implementation, service setup, hardware or approvals. Unknown means a current result is unavailable or has expired.</p>
             <p className="mt-1 text-xs text-slate-600">Passed/Failed reflect the latest verifiable dashboard evidence. Partly Connected and Unknown remain Not Tested until end-to-end evidence is recorded.</p>
             <p className="mt-2 text-xs text-slate-500">Test outcomes: Passed · Failed · Not Tested · Planned · Not Applicable</p>
             <ul className="mt-3 grid gap-2 md:grid-cols-2">

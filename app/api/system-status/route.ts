@@ -1,4 +1,5 @@
 import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
+import { learningStatusItems } from '@/app/lib/learningStatus.server';
 import { getKioskRateLimitStatus } from '@/app/lib/kioskRateLimit.server';
 import { latestVerifiedBackup } from '@/app/lib/backupStatus.server';
 import { administratorAuthenticationConfigured, administratorDemoEnabled } from '@/app/lib/adminAuthentication.server';
@@ -69,7 +70,9 @@ const withDependencyGroups = <T extends { name: string; status: string; evidence
   items: T[],
   stripeWebhookConfigured: boolean,
 ) => items.map((item) => {
-  const dependency = dependencyGroups[item.name] ?? { dependencyGroup: 'Core application', blockerCategory: null };
+  const dependency = dependencyGroups[item.name] ?? (item.name.startsWith('Demo learning:')
+    ? { dependencyGroup: 'Demo learner workspace', blockerCategory: 'Missing test evidence' as const }
+    : { dependencyGroup: 'Core application', blockerCategory: null });
   let blockerCategory = item.status === 'Connected' ? null : dependency.blockerCategory;
   if (
     (item.name === 'Application -> Ubuntu host health endpoint' || item.name === 'Application -> Database server health endpoint')
@@ -97,7 +100,9 @@ const withDependencyGroups = <T extends { name: string; status: string; evidence
   const isFormatAdapter = item.name.startsWith('Application -> ')
     && item.evidence?.some((entry) => entry.startsWith('Development Simulation:'));
   let testSource = 'Application/runtime evidence; no separate end-to-end test recorded.';
-  if (isFormatAdapter) {
+  if (item.name.startsWith('Demo learning:')) {
+    testSource = 'Development learner-store records and audit-chain health; no separate browser test is recorded by this request. No approved CE credit is claimed.';
+  } else if (isFormatAdapter) {
     testSource = 'Development Simulation';
   } else if (item.name === 'Kiosk rate limiting -> shared abuse protection') {
     testSource = 'Current shared-store health check; cross-process contention is covered by the test suite.';
@@ -698,7 +703,9 @@ export async function GET() {
                 ? 'Stripe test-mode connectivity or safe cancellation failed.'
                 : 'Stripe key configuration is incomplete or inconsistent.'
             : stripeTestKeysConfigured
-              ? 'Test-mode credentials are configured, but a recent safe create-and-cancel check has not passed.'
+              ? latestStripeApiConnectivityCheck
+                ? `The last recorded Stripe API check ${latestStripeApiConnectivityCheck.result === 'success' ? 'passed' : 'failed'}, but its 15-minute freshness window has expired. Run the check again for current connectivity.`
+                : 'Test-mode credentials are configured, but no safe create-and-cancel check has been recorded.'
               : 'A test-mode Stripe key pair is not configured in this environment.',
         connectedComponents: ['SystemStatusViewer', 'POST /api/system-status/stripe-test', 'Stripe PaymentIntents API'],
         informationExchanged: 'A server-created USD 1 test PaymentIntent is immediately canceled; no payment method, learner details, client secret, or payment result is exchanged.',
@@ -707,7 +714,9 @@ export async function GET() {
             ? `A test-mode PaymentIntent was created and canceled at ${latestStripeApiConnectivityCheck.checkedAt}; no payment was collected.`
             : stripeSetupStatus === 'Failed' && stripeConnectivityFresh
               ? 'The latest safe test-mode connectivity check failed; provider error details are not exposed.'
-              : 'No recent successful PaymentIntent create-and-cancel check is recorded.',
+              : latestStripeApiConnectivityCheck
+                ? `Previous check: ${latestStripeApiConnectivityCheck.result} at ${latestStripeApiConnectivityCheck.checkedAt}. It is outside the 15-minute freshness window; stored payment and enrollment evidence is unchanged.`
+                : 'No PaymentIntent create-and-cancel check has been recorded.',
         ],
         lastTestedAt: latestStripeApiConnectivityCheck?.checkedAt ?? null,
         missingRequirement: stripeSetupStatus === 'Connected'
@@ -715,7 +724,7 @@ export async function GET() {
           : !stripeTestKeysConfigured
             ? 'Configure matching Stripe test-mode secret and publishable keys in development.'
             : 'Run a safe test-mode PaymentIntent create-and-cancel check from this dashboard.',
-        safeErrorMessage: 'Stripe test-mode connectivity could not be verified. No payment was collected.',
+        safeErrorMessage: stripeSetupStatus === 'Connected' ? null : 'Current Stripe API connectivity needs verification. This check does not collect payment or remove earlier payment/enrollment records.',
         ...(stripeTestAvailable ? { testAction: 'stripe-test' } : {}),
       },
       {
@@ -896,6 +905,7 @@ export async function GET() {
           : 'Run npm run backup with a protected CLINIC_BACKUP_DIR; configure scheduling, encrypted off-host copies and retention, and test recovery on a separate host.',
         safeErrorMessage: backupReceipt ? null : 'A recent verified backup is unavailable.',
       },
+      ...learningStatusItems(auditStatus?.chainValid === true),
     ], stripeWebhookConfigured),
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
