@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import DemoAlertInbox from './DemoAlertInbox';
 
 type ConnectionStatus = 'Connected' | 'Partly Connected' | 'Planned' | 'Unknown' | 'Failed';
 
@@ -159,7 +160,7 @@ export default function SystemStatusViewer() {
   const [query, setQuery] = useState('');
   const [seedingDemo, setSeedingDemo] = useState(false);
   const [demoError, setDemoError] = useState('');
-  const [demoResult, setDemoResult] = useState<{ learner: { email: string; password: string }; kiosk: { phone: string; lastFour: string }; message: string } | null>(null);
+  const [demoResult, setDemoResult] = useState<{ learner: { email: string; password: string }; kiosk: { phone: string; lastFour: string; cardToken: string }; message: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -367,9 +368,11 @@ export default function SystemStatusViewer() {
             <p>{demoResult.message}</p>
             <p className="break-all">Fictional learner email: <strong>{demoResult.learner.email}</strong><br />Demo-only password: <strong>{demoResult.learner.password}</strong></p>
             <p>Fictional patient phone: <strong>{demoResult.kiosk.phone}</strong> · Last four: <strong>{demoResult.kiosk.lastFour}</strong></p>
+            <p className="break-all">Fictional card token (separate card-test patient): <strong>{demoResult.kiosk.cardToken}</strong></p>
             <div className="flex flex-wrap gap-4"><a href="/learn" target="_blank" rel="noopener noreferrer" className="min-h-11 py-3 font-semibold text-[#3158d8]">Open demo learner workspace ↗</a><a href="/kiosk" target="_blank" rel="noopener noreferrer" className="min-h-11 py-3 font-semibold text-[#3158d8]">Open demo kiosk ↗</a></div>
           </div>}
         </div>}
+        {systemStatus?.developmentIntegrationSimulatorsEnabled && <DemoAlertInbox checkedAt={systemStatus.checkedAt} />}
         {systemStatus?.items.some((item) => item.testAction === 'stripe-test') ? (
           <button
             type="button"

@@ -31,6 +31,7 @@ export default function KioskClient({ demoVerificationEnabled = false }: { demoV
   const [challengeId, setChallengeId] = useState('');
   const [demoCode, setDemoCode] = useState('');
   const [code, setCode] = useState('');
+  const [cardToken, setCardToken] = useState('');
 
   const resetKiosk = () => {
     setStep('start');
@@ -41,6 +42,7 @@ export default function KioskClient({ demoVerificationEnabled = false }: { demoV
     setMessage('');
     setIsSaving(false);
     setDemoFlow(false); setFullPhone(''); setNeedsFullPhone(false); setChallengeId(''); setDemoCode(''); setCode('');
+    setCardToken('');
   };
 
   const showPhoneLookup = () => {
@@ -94,6 +96,17 @@ export default function KioskClient({ demoVerificationEnabled = false }: { demoV
       if (!response.ok || !data.patient || !data.appointment || !data.checkInToken) { setMessage(data.error ?? 'The demo code could not be verified.'); return; }
       setPatient(data.patient); setAppointment(data.appointment); setCheckInToken(data.checkInToken); setStep('confirm');
     } catch { setMessage('Demo verification is temporarily unavailable.'); }
+    finally { setIsSaving(false); }
+  };
+
+  const readDemoCard = async () => {
+    setIsSaving(true); setMessage('');
+    try {
+      const response = await fetch('/api/kiosk/demo-card', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: cardToken.trim() }) });
+      const data = await response.json() as KioskLookupResponse;
+      if (!response.ok || !data.patient || !data.appointment || !data.checkInToken) { setMessage(data.error ?? 'The demo card could not be verified.'); return; }
+      setPatient(data.patient); setAppointment(data.appointment); setCheckInToken(data.checkInToken); setStep('confirm');
+    } catch { setMessage('Demo card lookup is temporarily unavailable.'); }
     finally { setIsSaving(false); }
   };
 
@@ -154,7 +167,7 @@ export default function KioskClient({ demoVerificationEnabled = false }: { demoV
                 <button onClick={() => setStep('scan')} className="min-h-36 rounded-2xl border-2 border-[#dce1e8] bg-white/65 p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <span className="text-3xl" aria-hidden="true">▣</span>
                   <span className="mt-5 block text-xl font-semibold">Scan clinic membership ID</span>
-                  <span className="mt-2 block text-sm text-[#657184]">This scanner is unavailable; please see the front desk.</span>
+                  <span className="mt-2 block text-sm text-[#657184]">{demoVerificationEnabled ? 'Test a fictional card token. Physical NFC reader setup is pending.' : 'This scanner is unavailable; please see the front desk.'}</span>
                 </button>
                 <button onClick={() => setMessage('Please bring your appointment details to the front desk for assistance.')} className="min-h-28 rounded-2xl border border-[#dce1e8] bg-transparent p-5 text-left hover:bg-white/50">
                   <span className="block text-lg font-semibold">Need front desk assistance?</span>
@@ -196,9 +209,20 @@ export default function KioskClient({ demoVerificationEnabled = false }: { demoV
 
           {step === 'scan' && (
             <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-5 shadow-sm sm:p-10">
+              {demoVerificationEnabled ? <>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#617089]">Development card demo</p>
+                <h2 className="mt-3 text-3xl font-semibold">Try a fictional membership card</h2>
+                <p className="mt-4 text-sm leading-7 text-[#657184]">Paste the fictional card token from Run demo setup, then press Enter. This tests appointment lookup and check-in. It does not read an ACR1252U NFC device; that needs a local reader bridge.</p>
+                <form className="mt-5 space-y-4" onSubmit={(event) => { event.preventDefault(); void readDemoCard(); }}>
+                  <label className="block text-sm font-semibold">Demo membership card token<input className="mt-2 min-h-14 w-full rounded-xl border-2 border-[#dce1e8] px-4 text-base" autoFocus autoComplete="off" maxLength={128} value={cardToken} onChange={(event) => setCardToken(event.target.value)} /></label>
+                  <button className="min-h-12 rounded-xl bg-[#3158d8] px-5 font-semibold text-white disabled:opacity-50" disabled={isSaving || !cardToken.trim()}>{isSaving ? 'Finding appointment…' : 'Find demo card appointment'}</button>
+                </form>
+                {message && <p role="alert" className="mt-4 text-sm text-rose-700">{message}</p>}
+              </> : <>
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#617089]">Scanner unavailable</p>
               <h2 className="mt-3 text-3xl font-semibold">Please see the front desk</h2>
               <p className="mt-4 leading-7 text-[#657184]">This kiosk does not have a connected membership-ID scanner or verification service. We have not scanned or checked in anyone. A staff member can verify your membership ID at the front desk.</p>
+              </>}
               <button onClick={resetKiosk} className="mt-8 w-full rounded-xl bg-[#3158d8] px-6 py-4 font-semibold text-white hover:bg-[#2649bb]">Return to start</button>
             </div>
           )}

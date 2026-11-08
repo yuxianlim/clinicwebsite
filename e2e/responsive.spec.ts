@@ -100,7 +100,7 @@ test('all pages, dashboard sections, and dialogs adapt to the viewport', async (
     await expect(page.getByRole('heading', { name: 'Check-in successful', exact: true })).toBeVisible();
     await noOverflow(page);
     await page.getByRole('button', { name: /Scan clinic membership ID/ }).click();
-    await expect(page.getByRole('heading', { name: 'Please see the front desk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Try a fictional membership card' })).toBeVisible();
     await noOverflow(page);
     await page.screenshot({ path: testInfo.outputPath('kiosk.png'), fullPage: true });
   });

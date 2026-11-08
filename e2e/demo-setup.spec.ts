@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('one admin action connects fictional learner and kiosk flows without claiming real Stripe or SMS evidence', async ({ page, context }) => {
   expect((await context.request.post('/api/system-status/demo-setup', { data: {} })).status()).toBe(403);
+  expect((await context.request.get('/api/system-status/demo-alerts')).status()).toBe(403);
   await context.request.post('/api/clinic/session', { data: { email: 'fixture-admin@example.invalid', password: 'development-only-fixture', method: 'email' } });
   expect((await context.request.post('/api/system-status/demo-setup', { headers: { origin: 'https://unrelated.example.invalid' }, data: {} })).status()).toBe(403);
   await context.addInitScript(() => sessionStorage.setItem('clinic_auth_session', JSON.stringify({ authenticated: true, role: 'admin', method: 'email', verificationCompleted: true, permissions: ['audit-log:read'] })));
@@ -18,6 +19,16 @@ test('one admin action connects fictional learner and kiosk flows without claimi
   for (let index = 0; index < 5; index++) await expect(cards.nth(index).getByText('Connected', { exact: true })).toBeVisible();
   const kioskCard = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Demo kiosk: code verification -> appointment access', exact: true }) });
   await expect(kioskCard.getByText('Connected', { exact: true })).toBeVisible();
+  const membershipCard = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Demo kiosk: membership card -> appointment access', exact: true }) });
+  await expect(membershipCard.getByText('Connected', { exact: true })).toBeVisible();
+  const monitoring = page.locator('article').filter({ has: page.getByRole('heading', { name: 'Demo monitoring: event -> local alert inbox', exact: true }) });
+  await expect(monitoring.getByText('Connected', { exact: true })).toBeVisible();
+  await page.getByText(/^Local demo alert inbox \(/).click();
+  const alertResponse = page.waitForResponse((response) => response.url().endsWith('/api/system-status/demo-alerts') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Send demo alert', exact: true }).click();
+  const alertResult = await alertResponse; expect(alertResult.status()).toBe(200);
+  const alertId = (await alertResult.json()).alert.eventId;
+  await expect(page.locator('li').filter({ hasText: alertId })).toContainText('Source: local demo inbox');
   const report = await (await context.request.get('/api/system-status')).json();
   expect(report.items.find((item: { name: string }) => item.name === 'CEU completion/attendance -> certificate issuance').status).toBe('Planned');
   expect(report.items.find((item: { name: string }) => item.name === 'Patient identity provider -> kiosk verification').status).toBe('Planned');
@@ -52,6 +63,13 @@ test('one admin action connects fictional learner and kiosk flows without claimi
   await page.getByLabel('Six-digit demo code', { exact: true }).fill(code);
   await page.getByRole('button', { name: 'Verify demo code', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Please confirm your check-in', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm Check-In', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Check-in successful', exact: true })).toBeVisible();
+  await page.goto('/kiosk');
+  await page.getByRole('button', { name: /Scan clinic membership ID/ }).click();
+  await page.getByLabel('Demo membership card token', { exact: true }).fill(setup.kiosk.cardToken);
+  await page.getByLabel('Demo membership card token', { exact: true }).press('Enter');
+  await expect(page.getByText('Fictional Card Check', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Confirm Check-In', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Check-in successful', exact: true })).toBeVisible();
 });

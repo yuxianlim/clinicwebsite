@@ -1,4 +1,4 @@
-import { createHash, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { appendDemoKioskAudit, createClinicPatient, getLatestAuditEvent, learningDatabase, listClinicPatients } from './auditStore.server';
 import { createAppointment, findKioskAppointmentForVerifiedPatient, getUnavailableAppointmentTimes, listAppointments } from './appointmentStore.server';
 
@@ -13,6 +13,28 @@ const database = () => {
   return db;
 };
 const hash = (id: string, code: string) => createHash('sha256').update(`${id}:${code}`).digest('hex');
+const cardState = globalThis as typeof globalThis & { demoCardSecret?: string };
+const demoCardToken = (patientId: string) => `demo_card_${createHmac('sha256', process.env.CLINIC_SESSION_SECRET || (cardState.demoCardSecret ??= randomBytes(32).toString('hex'))).update(patientId).digest('base64url')}`;
+
+const appointmentForDemoPatient = (patientId: string, action: 'Demo kiosk code verified' | 'Demo kiosk card verified') => {
+  const patient = listClinicPatients().find((item) => item.id === patientId);
+  if (!patient) throw new DemoKioskError('The fictional patient is unavailable.');
+  const match = findKioskAppointmentForVerifiedPatient(patient, date());
+  if (!match) throw new DemoKioskError('No eligible fictional appointment is available today.');
+  const db = database();
+  db.exec('BEGIN IMMEDIATE');
+  try { appendDemoKioskAudit(action); db.exec('COMMIT'); } catch (error) { db.exec('ROLLBACK'); throw error; }
+  return { patient: match.patient, appointment: { id: match.appointment.id, date: match.appointment.date, time: match.appointment.time, practitioner: match.appointment.practitioner }, checkInToken: match.checkInToken, source: 'development-fixture' as const };
+};
+
+export const verifyDemoCard = (token: string) => {
+  required();
+  if (!/^demo_card_[A-Za-z0-9_-]{43}$/.test(token)) throw new DemoKioskError('Use the fictional card token from Run demo setup.');
+  const fixtures = database().prepare('SELECT patient_id FROM demo_kiosk_patients').all() as { patient_id: string }[];
+  const fixture = fixtures.find((item) => timingSafeEqual(Buffer.from(demoCardToken(item.patient_id)), Buffer.from(token)));
+  if (!fixture) throw new DemoKioskError('The fictional card could not be verified.');
+  return appointmentForDemoPatient(fixture.patient_id, 'Demo kiosk card verified');
+};
 
 export const requestDemoCode = (lastFour: string, fullPhone = '', now = Date.now()) => {
   required();
@@ -50,29 +72,24 @@ export const verifyDemoCode = (id: string, code: string, now = Date.now()) => {
     db.exec('COMMIT');
   } catch (error) { db.exec('ROLLBACK'); throw error; }
   if (!patientId) throw new DemoKioskError('The demo code is incorrect, expired or already used. Request a new code.');
-  const patient = listClinicPatients().find((item) => item.id === patientId);
-  if (!patient) throw new DemoKioskError('The fictional patient is unavailable.');
-  const match = findKioskAppointmentForVerifiedPatient(patient, date());
-  if (!match) throw new DemoKioskError('No eligible fictional appointment is available today.');
-  db.exec('BEGIN IMMEDIATE');
-  try { appendDemoKioskAudit(); db.exec('COMMIT'); } catch (error) { db.exec('ROLLBACK'); throw error; }
-  return { patient: match.patient, appointment: { id: match.appointment.id, date: match.appointment.date, time: match.appointment.time, practitioner: match.appointment.practitioner }, checkInToken: match.checkInToken, source: 'development-fixture' as const };
+  return appointmentForDemoPatient(patientId, 'Demo kiosk code verified');
 };
 
-export const seedDemoKiosk = () => {
+export const seedDemoKiosk = (kind: 'phone' | 'card' = 'phone') => {
   required();
   const db = database();
   const day = date();
-  const existing = db.prepare('SELECT patient_id FROM demo_kiosk_patients WHERE fixture_day = ?').get(day) as { patient_id: string } | undefined;
+  const key = kind === 'card' ? `${day}:card` : day;
+  const existing = db.prepare('SELECT patient_id FROM demo_kiosk_patients WHERE fixture_day = ?').get(key) as { patient_id: string } | undefined;
   let patient = existing ? listClinicPatients().find((item) => item.id === existing.patient_id) : undefined;
   if (!patient) {
     const used = new Set(listClinicPatients().map((item) => item.phone.replace(/\D/g, '').slice(-4)));
     const phone = Array.from({ length: 100 }, (_, index) => `40855501${String(99 - index).padStart(2, '0')}`).find((item) => !used.has(item.slice(-4)));
     if (!phone) throw new DemoKioskError('No free fictional phone suffix is available.');
-    patient = createClinicPatient({ firstName: 'Fictional', lastName: 'Code Check', phone, sessionId: null });
-    db.prepare('INSERT INTO demo_kiosk_patients VALUES (?, ?)').run(patient.id, day);
+    patient = createClinicPatient({ firstName: 'Fictional', lastName: kind === 'card' ? 'Card Check' : 'Code Check', phone, sessionId: null });
+    db.prepare('INSERT INTO demo_kiosk_patients VALUES (?, ?)').run(patient.id, key);
   }
-  const already = listAppointments().some((item) => item.patientId === patient.id && item.date === day && item.status !== 'cancelled');
+  const already = listAppointments().some((item) => item.patientId === patient.id && item.date === day && item.status !== 'cancelled' && !item.checkedInAt);
   if (!already) {
     const practitioner = '李医生';
     const unavailable = getUnavailableAppointmentTimes(day, practitioner);
@@ -83,9 +100,11 @@ export const seedDemoKiosk = () => {
     if (!time) throw new DemoKioskError('No free fictional appointment slot is available today.');
     createAppointment({ name: `${patient.firstName} ${patient.lastName}`, contact: patient.phone, date: day, time, practitioner });
   }
-  if (!getLatestAuditEvent('check-in', ['Demo kiosk code verified'])) {
+  if (kind === 'phone' && !getLatestAuditEvent('check-in', ['Demo kiosk code verified'])) {
     const challenge = requestDemoCode(patient.phone.slice(-4));
     if (!challenge.requiresFullPhone) verifyDemoCode(challenge.challengeId, challenge.demoCode);
   }
-  return { phone: patient.phone, lastFour: patient.phone.slice(-4) };
+  const cardToken = demoCardToken(patient.id);
+  if (kind === 'card' && !getLatestAuditEvent('check-in', ['Demo kiosk card verified'])) verifyDemoCard(cardToken);
+  return { phone: patient.phone, lastFour: patient.phone.slice(-4), cardToken };
 };

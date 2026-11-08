@@ -55,6 +55,18 @@ test('explicit demo fixtures connect learner records without inventing Stripe ev
     assert.throws(() => kiosk.verifyDemoCode(resolved.challengeId, resolved.demoCode));
     assert.equal(appointments.checkInServerAppointment(verified.appointment.id, verified.checkInToken).ok, true);
     assert.equal(appointments.checkInServerAppointment(verified.appointment.id, verified.checkInToken).ok, false);
+    const card = kiosk.seedDemoKiosk('card');
+    assert.equal(kiosk.seedDemoKiosk('card').cardToken, card.cardToken);
+    const wrongCard = `${card.cardToken.slice(0, -1)}${card.cardToken.endsWith('A') ? 'B' : 'A'}`;
+    assert.throws(() => kiosk.verifyDemoCard(wrongCard));
+    const cardMatch = kiosk.verifyDemoCard(card.cardToken);
+    assert.notEqual(cardMatch.patient.id, verified.patient.id);
+    assert.equal(cardMatch.patient.name, 'Fictional Card Check');
+    assert.equal(appointments.checkInServerAppointment(cardMatch.appointment.id, cardMatch.checkInToken).ok, true);
+    assert.throws(() => kiosk.verifyDemoCard(card.cardToken), /No eligible/);
+    const freshCard = kiosk.seedDemoKiosk('card');
+    assert.equal(freshCard.cardToken, card.cardToken);
+    assert.notEqual(kiosk.verifyDemoCard(freshCard.cardToken).appointment.id, cardMatch.appointment.id, 'a new test appointment is prepared without changing completed check-ins');
     assert.equal(audit.getAuditStoreStatus().chainValid, true);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

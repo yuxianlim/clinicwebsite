@@ -1,6 +1,6 @@
 # Demo learner workspace
 
-This is a development-only preview for fictional learner data. Hosting and clinic billing are deferred. The requested organizer display name is **Whitewater University of California**. No course approval IDs, provider approval IDs or credit hours have been supplied: the demo does not claim CAB/NCBAHM approval or award approved CE credit.
+This is a development-only preview for fictional learner data. Hosting is deferred; clinic billing is now requested and awaiting financial rules. The requested organizer display name is **Whitewater University of California**. No course approval IDs, provider approval IDs or credit hours have been supplied: the demo does not claim CAB/NCBAHM approval or award approved CE credit.
 
 ## Start on Windows / VS Code
 
@@ -18,6 +18,8 @@ Sign in to the staff portal and open **System Status → Run demo setup**. This 
 The result displays a fictional learner email and the public demo-only password, plus a fictional phone number. Use those to browse `/learn` or choose **Try demo phone verification** at `/kiosk`. Codes appear on the demo screen for fictional patients only; no SMS is sent. Ambiguous last-four matches require the full phone number. Codes expire after five minutes, allow at most five attempts and can be used once. The existing single-use appointment check-in token is still required.
 
 Setup reuses its learner/course records on repeat runs. It creates no Stripe intent, payment or verified Stripe event. Fixture purchases have a separate marker; account history, receipts, certificates and dashboard evidence label the generated source explicitly. Fixture progress does not represent observed human attendance. No genuine SMS verification, physical scanner, server monitoring or approved CE credit is claimed, and all fixture creation/verification APIs are disabled in production. Existing real Stripe verification statuses are unaffected.
+
+Setup also provides a fictional membership-card token for a separate card-test patient and seeds a local demo alert inbox. In the kiosk, select **Scan clinic membership ID**, paste the token and press Enter to test appointment lookup/check-in. This does not operate the chosen ACR1252U NFC hardware. In System Status, expand **Local demo alert inbox** and use **Send demo alert** to verify local delivery/receipt storage. Completed demo check-ins are preserved; setup prepares a fresh eligible fictional appointment when needed for another test. See [NFC_AND_BILLING_REQUIREMENTS.md](NFC_AND_BILLING_REQUIREMENTS.md) for the hardware and clinic billing information still needed.
 
 ### Optional: manually test the genuine Stripe sandbox path
 
@@ -74,6 +76,6 @@ System Status has five separate **Demo learner workspace** rows for stored accou
 - Approved tax, invoice, cancellation and refund policy. Demo payment receipts are not tax invoices; automatic refunds have not been invented or enabled.
 - Email verification, password recovery and production learner-account operations. The entire demo API is disabled in production regardless of its feature flag.
 - Ubuntu hosting, real SMS verification service, physical membership scanner, monitoring, off-site backup destination, scheduling and retention choices. The code-challenge fixture is not real phone-possession verification.
-- Clinic billing remains deferred by request.
+- Clinic billing is requested and awaits service/pricing, payment/insurance, invoice, cancellation/refund and staff-permission rules.
 
 Automated tests use disposable records and locally signed fictional webhook fixtures. They do not contact Stripe or establish real provider connectivity. Test the new checkout with your actual sandbox keys and listener on your Windows copy.
