@@ -68,7 +68,12 @@ export async function POST(request: Request) {
     } catch {
       console.error('Appointment was saved, but its audit event could not be persisted.');
     }
-    return Response.json({ appointment }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
+    // A guest confirmation never reveals whether an existing patient was matched.
+    return Response.json({ appointment: {
+      id: appointment.id, name: appointment.name, contact: appointment.contact,
+      date: appointment.date, time: appointment.time, practitioner: appointment.practitioner,
+      timestamp: appointment.timestamp, status: appointment.status,
+    } }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     if (error instanceof InvalidAppointmentError) {
       return Response.json({ error: error.message }, { status: 400 });

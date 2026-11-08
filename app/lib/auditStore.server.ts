@@ -15,6 +15,7 @@ const services: Record<AuditModule, { actorId: string; role: string }> = {
   ceu: { actorId: 'clinic-education', role: 'service' },
   authentication: { actorId: 'clinic-authentication', role: 'service' },
   administration: { actorId: 'clinic-admin-management', role: 'administrator' },
+  billing: { actorId: 'clinic-demo-billing', role: 'service' },
 };
 
 const safeSummaries: Record<string, string> = {
@@ -43,7 +44,18 @@ const safeSummaries: Record<string, string> = {
   'ceu:Demo fixture purchase recorded': 'An explicitly fictional development purchase fixture was stored; no Stripe event or payment was claimed.',
   'check-in:Demo kiosk code verified': 'A development-only code challenge for a marked fictional patient was verified; no SMS or real identity verification was claimed.',
   'check-in:Demo kiosk card verified': 'A fictional membership card token reached appointment access; no physical reader or real membership verification was claimed.',
+  'check-in:Simulated NFC tap received': 'A simulated ACS ACR1252U/NTAG213 tap reached the fictional appointment; no physical NFC device was contacted.',
   'administration:Demo alert stored': 'A development-only operational event reached the local demo inbox; no external notification was sent.',
+  'billing:Demo invoice issued': 'A fictional invoice was issued after a demo treatment; no real financial obligation was created.',
+  'billing:Demo payment recorded': 'A fictional clinic payment was recorded; no payment provider was contacted.',
+  'billing:Demo refund approved': 'An authorized demo billing actor approved a fictional refund; no provider refund was requested.',
+  'billing:Demo refund settled': 'A fictional refund settlement was simulated; no bank or payment provider confirmation was claimed.',
+  'billing:Demo no-show recorded': 'A fictional visit no-show was recorded and its approved consecutive-visit rule evaluated.',
+  'billing:Demo booking block removed': 'Authorized clinic staff removed a fictional booking restriction and reset its no-show streak.',
+  'billing:Demo cancellation recorded': 'A fictional cancellation was recorded and the inclusive 24-hour fee rule evaluated.',
+  'billing:Demo treatment completed': 'A fictional treatment completion and its invoice scheduling rule were recorded.',
+  'billing:Demo invoice corrected': 'Authorized staff recorded a fictional invoice correction; its original issued amount was preserved.',
+  'billing:Demo attendance recorded': 'A fictional patient’s confirmed attendance reset the consecutive no-show streak; an existing booking block still requires staff removal.',
   'authentication:Administrator login succeeded': 'Administrator authentication succeeded.',
   'authentication:Administrator login failed': 'An administrator login attempt failed.',
   'authentication:Administrator logout': 'An administrator session was ended.',
@@ -373,7 +385,9 @@ export const learningDatabase = getDatabase;
 export const appendLearningAudit = (action: 'Demo course payment verified' | 'Demo final exam submitted' | 'Demo certificate issued' | 'Demo fixture purchase recorded', recordId: string) =>
   appendAuditEventInTransaction(getDatabase(), { module: 'ceu', action, relatedRecordId: recordId, result: 'success', sessionId: null });
 export const appendDemoKioskAudit = (action: 'Demo kiosk code verified' | 'Demo kiosk card verified' = 'Demo kiosk code verified') => appendAuditEventInTransaction(getDatabase(), { module: 'check-in', action, relatedRecordId: 'development-kiosk-verification', result: 'success', sessionId: null });
+export const appendSimulatedNfcAudit = () => appendAuditEventInTransaction(getDatabase(), { module: 'check-in', action: 'Simulated NFC tap received', relatedRecordId: 'simulated-acr1252u-ntag213', result: 'success', sessionId: null });
 export const appendDemoAlertAudit = (id: string) => appendAuditEventInTransaction(getDatabase(), { module: 'administration', action: 'Demo alert stored', relatedRecordId: id, result: 'success', sessionId: null });
+export const appendDemoBillingAudit = (action: 'Demo invoice issued' | 'Demo payment recorded' | 'Demo refund approved' | 'Demo refund settled' | 'Demo no-show recorded' | 'Demo booking block removed' | 'Demo cancellation recorded' | 'Demo treatment completed' | 'Demo invoice corrected' | 'Demo attendance recorded', id: string, sessionId: string) => appendAuditEventInTransaction(getDatabase(), { module: 'billing', action, relatedRecordId: id, result: 'success', sessionId });
 
 type PatientRow = {
     id: string;
@@ -399,6 +413,16 @@ export const listClinicPatients = (): Patient[] => getDatabase().prepare(`
     SELECT id, first_name, last_name, status, last_visit, phone, visit_history
     FROM clinic_patients ORDER BY lower(last_name), lower(first_name)
   `).all().map((row) => mapPatient(row as PatientRow));
+
+/** Guest bookings are matched by full phone AND name, never phone suffix alone.
+ * An unresolved identity is left unlinked for staff review; no history is exposed. */
+export const findClinicPatientForBooking = (name: string, phone: string): Patient | null => {
+  const digits = phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+  const normalizedName = name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US');
+  const rows = getDatabase().prepare('SELECT id,first_name,last_name,status,last_visit,phone,visit_history FROM clinic_patients WHERE normalized_phone IN (?,?)').all(digits, `1${digits}`) as PatientRow[];
+  const matches = rows.filter((row) => `${row.first_name} ${row.last_name}`.trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US') === normalizedName);
+  return matches.length === 1 ? mapPatient(matches[0]) : null;
+};
 
   export const findClinicPatientByLastFour = (lastFour: string): Patient | null => {
     if (!/^\d{4}$/.test(lastFour)) return null;

@@ -1,6 +1,7 @@
 import { appendAuditEvent } from '@/app/lib/auditStore.server';
 import { checkInServerAppointment } from '@/app/lib/appointmentStore.server';
 import { checkKioskRequest } from '@/app/lib/kioskRateLimit.server';
+import { recordDemoAttendance } from '@/app/lib/demoBilling.server';
 
 export const runtime = 'nodejs';
 
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
     }
 
     try {
+      if (result.appointment.patientId) recordDemoAttendance(result.appointment.patientId, result.appointment.id);
       appendAuditEvent({
         module: 'check-in',
         action: 'Patient checked in',

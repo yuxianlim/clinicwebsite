@@ -99,10 +99,10 @@ export default function KioskClient({ demoVerificationEnabled = false }: { demoV
     finally { setIsSaving(false); }
   };
 
-  const readDemoCard = async () => {
+  const readDemoCard = async (simulate = false) => {
     setIsSaving(true); setMessage('');
     try {
-      const response = await fetch('/api/kiosk/demo-card', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: cardToken.trim() }) });
+      const response = await fetch('/api/kiosk/demo-card', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(simulate ? { action: 'simulate-tap' } : { token: cardToken.trim() }) });
       const data = await response.json() as KioskLookupResponse;
       if (!response.ok || !data.patient || !data.appointment || !data.checkInToken) { setMessage(data.error ?? 'The demo card could not be verified.'); return; }
       setPatient(data.patient); setAppointment(data.appointment); setCheckInToken(data.checkInToken); setStep('confirm');
@@ -212,6 +212,8 @@ export default function KioskClient({ demoVerificationEnabled = false }: { demoV
               {demoVerificationEnabled ? <>
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#617089]">Development card demo</p>
                 <h2 className="mt-3 text-3xl font-semibold">Try a fictional membership card</h2>
+                <p className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">Demo ACR1252U reader connected · NTAG213 simulation</p>
+                <button className="mt-4 min-h-12 rounded-xl bg-[#3158d8] px-5 font-semibold text-white disabled:opacity-50" disabled={isSaving} onClick={() => void readDemoCard(true)}>{isSaving ? 'Reading simulated tag…' : 'Simulate NTAG213 tap'}</button>
                 <p className="mt-4 text-sm leading-7 text-[#657184]">Paste the fictional card token from Run demo setup, then press Enter. This tests appointment lookup and check-in. It does not read an ACR1252U NFC device; that needs a local reader bridge.</p>
                 <form className="mt-5 space-y-4" onSubmit={(event) => { event.preventDefault(); void readDemoCard(); }}>
                   <label className="block text-sm font-semibold">Demo membership card token<input className="mt-2 min-h-14 w-full rounded-xl border-2 border-[#dce1e8] px-4 text-base" autoFocus autoComplete="off" maxLength={128} value={cardToken} onChange={(event) => setCardToken(event.target.value)} /></label>

@@ -1,3 +1,4 @@
+import { demoBillingEnabled, demoBillingStatus } from '@/app/lib/demoBilling.server';
 import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import { learningStatusItems } from '@/app/lib/learningStatus.server';
 import { demoKioskEnabled } from '@/app/lib/demoKiosk.server';
@@ -73,9 +74,11 @@ const withDependencyGroups = <T extends { name: string; status: string; evidence
   items: T[],
   stripeWebhookConfigured: boolean,
 ) => items.map((item) => {
-  const dependency = dependencyGroups[item.name] ?? (item.name.startsWith('Demo monitoring:')
+  const dependency = dependencyGroups[item.name] ?? (item.name.startsWith('Demo billing:')
+    ? { dependencyGroup: 'Clinic operations records', blockerCategory: 'Missing test evidence' as const }
+    : item.name.startsWith('Demo monitoring:')
     ? { dependencyGroup: 'Development operations', blockerCategory: 'Missing test evidence' as const }
-    : item.name.startsWith('Demo kiosk:')
+    : item.name.startsWith('Demo kiosk:') || item.name.startsWith('Demo NFC:')
     ? { dependencyGroup: 'Kiosk check-in', blockerCategory: 'Missing test evidence' as const }
     : item.name.startsWith('Demo learning:')
     ? { dependencyGroup: 'Demo learner workspace', blockerCategory: 'Missing test evidence' as const }
@@ -107,9 +110,11 @@ const withDependencyGroups = <T extends { name: string; status: string; evidence
   const isFormatAdapter = item.name.startsWith('Application -> ')
     && item.evidence?.some((entry) => entry.startsWith('Development Simulation:'));
   let testSource = 'Application/runtime evidence; no separate end-to-end test recorded.';
-  if (item.name.startsWith('Demo monitoring:')) {
+  if (item.name.startsWith('Demo billing:')) {
+    testSource = 'Persisted fictional clinic ledger and audit chain; no real payment, refund or insurance claim was submitted.';
+  } else if (item.name.startsWith('Demo monitoring:')) {
     testSource = 'Persisted local demo alert and matching inbox receipt; no external notification service was contacted.';
-  } else if (item.name.startsWith('Demo kiosk:')) {
+  } else if (item.name.startsWith('Demo kiosk:') || item.name.startsWith('Demo NFC:')) {
     testSource = 'Development-only code/card verification for allowlisted fictional patients. No SMS delivery, physical NFC reader or real patient identity was verified.';
   } else if (item.name.startsWith('Demo learning:')) {
     testSource = 'Development learner-store records and audit-chain health; no separate browser test is recorded by this request. No approved CE credit is claimed.';
@@ -275,6 +280,7 @@ export async function GET() {
   let latestKioskAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestDemoKioskAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestDemoCardAudit: ReturnType<typeof getLatestAuditEvent> = null;
+  let latestNfcAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestPatientRecordAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestStaffRecordAudit: ReturnType<typeof getLatestAuditEvent> = null;
   let latestAdminAppointmentAudit: ReturnType<typeof getLatestAuditEvent> = null;
@@ -291,6 +297,7 @@ export async function GET() {
     latestKioskAudit = getLatestAuditEvent('check-in', ['Patient verification succeeded', 'Appointment lookup failed', 'Patient verification failed', 'Patient checked in', 'Check-in rejected', 'Duplicate check-in prevented']);
     latestDemoKioskAudit = getLatestAuditEvent('check-in', ['Demo kiosk code verified']);
     latestDemoCardAudit = getLatestAuditEvent('check-in', ['Demo kiosk card verified']);
+    latestNfcAudit = getLatestAuditEvent('check-in', ['Simulated NFC tap received']);
     latestPatientRecordAudit = getLatestAuditEvent('administration', ['Patient record created']);
     latestStaffRecordAudit = getLatestAuditEvent('administration', ['Staff record created']);
     latestAdminAppointmentAudit = getLatestAuditEvent('appointments', ['Admin appointment rescheduled', 'Admin appointment canceled']);
@@ -614,25 +621,26 @@ export async function GET() {
         description: 'An opaque fictional card token maps to an allowlisted test patient and today’s appointment. This verifies the application card-input path, not a physical ACR1252U NFC scan.',
         connectedComponents: ['Demo card input', '/api/kiosk/demo-card', 'Fictional patient allowlist', 'Single-use check-in tokens'],
         informationExchanged: 'An opaque demo token is validated server-side; only a limited patient/appointment summary and short-lived check-in token are returned. Raw card tokens are not logged or echoed.',
-        evidence: [latestDemoCardAudit ? `Demo membership lookup was recorded at ${latestDemoCardAudit.occurredAt}.` : 'No successful demo card lookup is recorded.', 'Physical ACS ACR1252U support requires a local PC/SC bridge and the actual card/tag details.'],
+        evidence: [latestDemoCardAudit ? `Demo membership lookup was recorded at ${latestDemoCardAudit.occurredAt}.` : 'No successful demo card lookup is recorded.', 'Physical ACS ACR1252U support requires a local PC/SC bridge and the NTAG213 hardware testing.'],
         lastTestedAt: latestDemoCardAudit?.occurredAt ?? null,
         missingRequirement: latestDemoCardAudit ? null : 'Run demo setup, then paste the fictional card token into the kiosk card-input screen.',
         safeErrorMessage: latestDemoCardAudit ? null : 'Demo card lookup has not been verified.',
       }] : []),
       {
         kind: 'Connection',
-        name: 'Membership scanner -> kiosk input',
-        status: 'Planned',
-        description: 'The demo card-input software is implemented. Physical ACS ACR1252U NFC reading still needs its Windows PC/SC connection and the card/tag details.',
+        name: demoKioskEnabled() ? 'Demo NFC: ACR1252U / NTAG213 -> kiosk input' : 'Membership scanner -> kiosk input',
+        status: demoKioskEnabled() ? !auditStatus?.chainValid ? 'Failed' : latestNfcAudit ? 'Connected' : 'Partly Connected' : 'Planned',
+        description: demoKioskEnabled() ? 'An explicitly simulated ACR1252U reader and NTAG213 card feed the fictional appointment/check-in path. The physical reader is not connected.' : 'Physical ACS ACR1252U reading of NTAG213 cards requires a Windows PC/SC bridge and real device testing.',
         connectedComponents: ['Membership scanner', 'KioskClient'],
         informationExchanged: 'Scanner sends deviceId, unique scanId, opaque membershipToken, and ISO-8601 scannedAt. After device and token verification, kiosk receives only patient {id,name}, appointment {id,date,time,practitioner}, and a short-lived single-use check-in token; raw membership tokens are not echoed or logged.',
         evidence: [
           'KioskClient accepts a fictional opaque card token and reaches the stored appointment; no physical NFC read is claimed.',
           'The server-side adapter validates the documented scan payload shape only; device authentication and membership-token verification are not configured.',
+          latestNfcAudit ? `A simulated NFC tap reached appointment access at ${latestNfcAudit.occurredAt}.` : 'No simulated NFC tap has been recorded.',
         ],
-        lastTestedAt: null,
-        missingRequirement: 'Confirm ACR1252U availability, Windows driver/PC/SC access and the card/tag type before implementing and testing the local NFC reader bridge.',
-        safeErrorMessage: 'The scanner is unavailable. Please see the front desk.',
+        lastTestedAt: latestNfcAudit?.occurredAt ?? null,
+        missingRequirement: demoKioskEnabled() ? latestNfcAudit ? null : 'Run demo setup or use Simulate NTAG213 tap in the kiosk.' : 'Connect the actual ACR1252U, install its Windows PC/SC driver and test the native bridge with NTAG213 cards.',
+        safeErrorMessage: demoKioskEnabled() && latestNfcAudit ? null : 'Reader input has not been verified.',
       },
       {
         kind: 'Connection',
@@ -872,18 +880,15 @@ export async function GET() {
         missingRequirement: staffWorkflowVerified ? null : 'Complete a staff-directory addition from the admin screen and verify the returned row and audit event.',
         safeErrorMessage: staffWorkflowVerified ? null : 'Staff records could not be loaded or saved.',
       },
-      {
-        kind: 'Connection',
-        name: 'Billing -> durable financial records and audit',
-        status: 'Planned',
-        description: 'Clinic billing is now in scope, but services/prices, payment methods, invoice timing, refund rules and staff permissions are awaiting definition. Current displayed amounts remain samples.',
-        connectedComponents: ['Admin portal billing screen', 'billing API', 'financial record store', 'audit log'],
-        informationExchanged: 'Would require authorized financial operation, verified payment reference, durable result, and safe audit metadata.',
-        evidence: ['portal/page.tsx renders static billingItems; the prototype has no invoice, refund, or billing mutation route.'],
-        lastTestedAt: null,
-        missingRequirement: 'Provide the clinic service/price list, payment/insurance handling, invoice timing, cancellation/refund rules and financial permission roles.',
-        safeErrorMessage: 'The billing request could not be completed.',
-      },
+      ...(demoBillingEnabled() ? [demoBillingStatus(auditStatus?.chainValid === true)] : [{
+        kind: 'Connection', name: 'Billing -> durable financial records and audit', status: 'Planned',
+        description: 'Clinic billing rules are implemented in the development ledger. Live staff provisioning, processor integration and insurance operations are not configured.',
+        connectedComponents: ['Clinic billing API', 'Financial record store', 'Audit log'],
+        informationExchanged: 'Live operations require authenticated staff and verified processor receipts.',
+        evidence: ['Development fixtures never establish real financial settlement.'], lastTestedAt: null,
+        missingRequirement: 'Configure live clinic staff accounts and payment processing before enabling real financial operations.',
+        safeErrorMessage: 'Live clinic billing is unavailable.',
+      }]),
       {
         kind: 'Connection',
         name: 'Appointment changes -> shared storage and audit',

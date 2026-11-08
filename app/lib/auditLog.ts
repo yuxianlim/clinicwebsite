@@ -1,4 +1,4 @@
-export type AuditModule = 'appointments' | 'check-in' | 'payments' | 'ceu' | 'authentication' | 'administration';
+export type AuditModule = 'appointments' | 'check-in' | 'payments' | 'ceu' | 'authentication' | 'administration' | 'billing';
 export type AuditResult = 'success' | 'denied' | 'failed' | 'pending';
 
 export interface AuditEvent {

@@ -7,6 +7,7 @@ import { useClinicAuth } from '@/app/lib/useClinicAuth';
 import AuditLogViewer from './components/AuditLogViewer';
 import ClinicRecordsManager from './components/ClinicRecordsManager';
 import SystemStatusViewer from './components/SystemStatusViewer';
+import ClinicBilling from './components/ClinicBilling';
 
 const sections = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -33,20 +34,6 @@ const notifications = [
   'Clinic reminder: flu season vaccination packets available.',
   'Staff meeting moved to 3:00 PM today.',
   'New consent forms uploaded for pediatric visits.',
-];
-
-const billingItems = [
-  { title: 'Consultation fees', amount: '$95' },
-  { title: 'Treatment charges', amount: '$140' },
-  { title: 'Herbal medicine charges', amount: '$68' },
-  { title: 'Membership fees', amount: '$120' },
-  { title: 'Insurance claims', amount: 'Pending review' },
-  { title: 'Discounts', amount: '-$20' },
-  { title: 'Gift cards', amount: '$50' },
-  { title: 'Refunds', amount: '$0' },
-  { title: 'Invoices', amount: '3 open' },
-  { title: 'Receipts', amount: '12 issued' },
-  { title: 'Payment methods', amount: 'Card / Cash / Insurance' },
 ];
 
 export default function PortalPage() {
@@ -85,34 +72,7 @@ export default function PortalPage() {
       case 'appointments':
         return <ClinicRecordsManager key="appointments" kind="appointments" />;
       case 'billing':
-        return (
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-[#dce1e8] bg-white p-4 sm:p-6">
-              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-semibold text-slate-900">Billing & Payments</h2>
-                  <p className="text-sm text-slate-600">Preview only: these are sample amounts, not clinic financial records. Billing is not configured.</p>
-                </div>
-                <button disabled title="Invoice creation requires a configured billing service and clinic billing rules." className="rounded-lg bg-[#3158d8] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Create invoice</button>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {billingItems.map((item) => (
-                  <div key={item.title} className="rounded-xl border border-[#dce1e8] bg-[#f3f5f8] p-4">
-                    <p className="text-sm text-slate-600">{item.title}</p>
-                    <p className="mt-2 text-xl font-semibold text-slate-900">{item.amount}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-[#dce1e8] bg-white p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-slate-900">Payment workflow</h3>
-              <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                <li>• Consultation fees, treatment charges, and herbal medicine charges can be grouped by visit.</li>
-                <li>• Membership fees, insurance claims, discounts, gift cards, refunds, invoices, receipts, and payment methods are visible for staff review.</li>
-              </ul>
-            </div>
-          </div>
-        );
+        return <ClinicBilling />;
       case 'staff':
         return <ClinicRecordsManager key="staff" kind="staff" />;
       case 'dashboard':

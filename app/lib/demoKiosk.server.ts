@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
-import { appendDemoKioskAudit, createClinicPatient, getLatestAuditEvent, learningDatabase, listClinicPatients } from './auditStore.server';
+import { appendDemoKioskAudit, appendSimulatedNfcAudit, createClinicPatient, getLatestAuditEvent, learningDatabase, listClinicPatients } from './auditStore.server';
 import { createAppointment, findKioskAppointmentForVerifiedPatient, getUnavailableAppointmentTimes, listAppointments } from './appointmentStore.server';
 
 export const demoKioskEnabled = () => process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS === 'true';
@@ -34,6 +34,17 @@ export const verifyDemoCard = (token: string) => {
   const fixture = fixtures.find((item) => timingSafeEqual(Buffer.from(demoCardToken(item.patient_id)), Buffer.from(token)));
   if (!fixture) throw new DemoKioskError('The fictional card could not be verified.');
   return appointmentForDemoPatient(fixture.patient_id, 'Demo kiosk card verified');
+};
+
+export const simulateNfcTap = () => {
+  required();
+  const db = database();
+  const fixture = db.prepare('SELECT patient_id FROM demo_kiosk_patients WHERE fixture_day = ?').get(`${date()}:card`) as { patient_id: string } | undefined;
+  if (!fixture) throw new DemoKioskError('Run demo setup to prepare a fictional NTAG213 card and appointment.');
+  const match = verifyDemoCard(demoCardToken(fixture.patient_id));
+  db.exec('BEGIN IMMEDIATE');
+  try { appendSimulatedNfcAudit(); db.exec('COMMIT'); } catch (error) { db.exec('ROLLBACK'); throw error; }
+  return { ...match, reader: { model: 'ACS ACR1252U', card: 'NTAG213', connected: true, source: 'simulated-device' as const } };
 };
 
 export const requestDemoCode = (lastFour: string, fullPhone = '', now = Date.now()) => {

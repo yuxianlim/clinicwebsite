@@ -1,45 +1,34 @@
-# Remaining non-infrastructure setup
+# Non-infrastructure demo connections
 
-## Confirmed decisions
+## Current scope
 
-- Real SMS stays deferred. Keep the existing fictional phone-code flow.
-- Chosen reader model: **ACS ACR1252U**, an NFC/RFID desktop smart-card reader.
-- Monitoring uses a **local development alert inbox** for now. No external email/SMS notification service has been selected or contacted.
-- Clinic billing is now requested, but its financial rules have not yet been provided. Existing displayed clinic amounts remain samples and invoice/refund actions remain unavailable.
-- CEU courses and certificates remain fictional/non-credit until real board/provider/course approval details are available.
-- Ubuntu, separate database/server deployment, managed backup scheduling and off-host recovery stay outside the current work.
+SMS stays demo-only. CEU courses and certificates remain fictional/non-credit until real provider/course approval details are supplied. Monitoring uses a protected local demo alert inbox, with stored matching receipts and no external notification. Ubuntu, separate server/database deployment, off-host storage and managed recovery remain deferred.
 
-## Membership card input completed for the demo
+Enable both `ENABLE_DEVELOPMENT_CEU_DEMO=true` and `ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS=true` in `.env.local`, restart `npm run dev`, then use **System Status → Run demo setup** as an administrator. This creates/reuses fictional learner, phone/card kiosk, billing and local alert records. No real charge, refund, SMS or hardware operation occurs.
 
-Run **System Status → Run demo setup** to obtain a fictional card token. The setup uses a separate marked fictional card-test patient and an eligible appointment. Choose **Scan clinic membership ID** in `/kiosk`, paste the token and press Enter. The server verifies the opaque token against the fictional patient allowlist, returns a limited appointment summary and issues the existing single-use check-in token. Invalid tokens and already checked-in appointments are rejected. Raw card tokens are not logged or echoed by the lookup API.
+## ACS ACR1252U / NTAG213 demo
 
-This input demonstration does **not** access an ACR1252U USB/NFC device or prove a physical scan. The ACR1252U uses the desktop smart-card/PC/SC interface; a local native reader bridge is required for actual browser-based kiosk use. No Web NFC, keyboard-emulation or plug-and-play hardware support is claimed.
+The selected reader is **ACS ACR1252U** and the selected cards are **NTAG213**. The physical reader is not connected yet. In `/kiosk`, choose **Scan clinic membership ID → Simulate NTAG213 tap**. An explicitly simulated device event passes through the server's fictional-card verification and returns a limited stored appointment with a short-lived single-use check-in token. Confirming check-in persists it. Pasting the fictional token supplied by demo setup remains available as a separate input option.
 
-Needed before implementing/testing the real reader bridge:
+The dashboard's **Demo NFC** row becomes Connected from the stored simulated tap; it does not claim USB/NFC connectivity. Real use requires the connected Windows reader, its PC/SC driver, a native local reader bridge and actual NTAG213 tests. Card enrollment/device authentication still need design before live use; a bare NFC UID is not strong patient authentication. Raw card tokens are not logged or echoed.
 
-1. Is the reader already available and connected to the Windows kiosk computer?
-2. Which cards/tags will be used? Provide the type or product link (for example NTAG213/215/216, MIFARE Classic or DESFire), or say they have not been purchased.
-3. Card enrollment and the credential stored/read on the card will be specified after compatibility is known. A bare NFC UID must not silently become a claim of strong patient authentication.
+## Clinic billing rules implemented in the fictional ledger
 
-The physical-reader status remains pending until actual device testing. The separate demo card-input row can be Connected from actual stored demo evidence.
+- USD initial visit **$180**, follow-up **$120**, medicine **+$50**.
+- The server determines visit type from earlier completed treatment/visit history. The UI has no manual initial/follow-up selector, and a client-supplied selection cannot override history. Bookings, cancellations and no-shows do not count as completed treatment.
+- A guest booking matches an existing patient using normalized **full phone number and full name**, without requiring login. Missing/uncertain matches remain unlinked for staff review. A public confirmation reveals neither the patient link nor their history. Matching a record does not authenticate the guest.
+- Non-insurance invoices issue immediately after a completed demo treatment. Insurance invoices wait until **business day 7**, with a displayed window through day 14. The local job checks every minute while the app runs and catches up at restart. Business dates use Pacific time, Monday–Friday excluding observed US federal holidays. **Simulate insurance day 7** explicitly advances only the demo processing input, not the host clock. No insurer is contacted.
+- Cancellation **24 hours or less before** the appointment, including exactly 24 hours, creates a **$50** fictional fee. The demo control exercises this boundary; it does not cancel an unrelated existing appointment.
+- The **third consecutive no-show** creates a **$100** fee and blocks all new public/staff clinic bookings for the fictional patient. Attendance resets the streak; cancellations leave it unchanged. Authorized staff unblocking removes the restriction and resets the count to zero. A booking block still requires staff removal.
+- Actual amount received is recorded independently of the correct bill. An underpayment remains a balance due. An overpayment permits only the **exact remaining difference** above the correct bill; approved refunds reserve that difference and cannot be duplicated. Original invoice/payment records remain intact. Estimated refund processing is **3–5 US business days after approval**. **Simulate refund completion** creates a fictional completion record, never a bank confirmation.
+- Credit card, PayPal, Apple Pay, Samsung Pay and Google Pay/Android can be exercised as fictional ledger methods. **Venmo and Zelle are separately recorded external methods**, not Stripe receipts. No live payment method is enabled by recording these fixtures. Actual Stripe method availability needs account/device/country validation.
 
-## Local alert inbox completed
+**Run demo setup** creates a fictional initial treatment paid $180, followed by a history-detected $120 follow-up incorrectly paid $180, with a $60 overpayment refund approved. Repeating setup reuses these records. Open **Billing & Payments** to inspect invoices, receipts, refund estimates, insurance scheduling and policy controls. Only explicitly marked fictional billing patients are accepted by this ledger.
 
-The protected System Status page contains **Local demo alert inbox** and **Send demo alert**. Test events are restricted to allowlisted event IDs/timestamps/severity/codes and contain no patient, card or credential payloads. A real local receipt is stored with the matching event ID; delivery and its audit entry are atomic. Duplicate event IDs with the same payload reuse their receipt; conflicting payloads are rejected. The inbox shows the latest 50 records without deleting older records.
+## Staff permissions and remaining live work
 
-Run demo setup seeds one local test event idempotently. System Status reports the local-inbox delivery evidence separately from the format-only monitoring simulation. The inbox API requires a development administrator session, rejects cross-origin mutations and is disabled in production. No external alerts are sent and no external delivery receipt is fabricated.
+Administrators may use the demo ledger. A separate development-only signed billing session supports **clinic staff**, with credentials `billing.staff@example.invalid` / `DemoBilling!2026`. Open Billing & Payments without an administrator cookie to use its sign-in form. This session cannot access patient administration, appointment administration, audit logs or System Status, and changing client-side role data cannot grant API permissions. The staff directory itself does not grant login access.
 
-## Clinic billing rules needed
+The billing APIs reject anonymous/cross-origin mutations, validate prices and refund amounts on the server, and commit ledger changes with safe audit entries. Request references prevent duplicate treatment, payment and refund operations when retried. All demo financial APIs/sessions are disabled in production.
 
-Supply the following before financial mutations are implemented:
-
-- Services/products and prices in USD; discounts/packages if any.
-- Payment methods, collection workflow and whether insurance is involved.
-- When invoices should be issued and required invoice/receipt information.
-- Applicable tax handling once established; no tax rule will be guessed from the CEU prototype.
-- Cancellation, no-show, refund and partial-refund rules.
-- Roles allowed to issue invoices, record/collect payments, approve refunds and view financial records.
-
-The current authenticated staff capability is administrator access; the staff directory alone does not grant staff login or financial permissions. Additional staff roles require an approved authentication/permission design. Mark undecided rules explicitly rather than supplying defaults that might be mistaken for clinic policy.
-
-No credentials are needed in chat. Real SMS, NFC production credentials and approved certificate details will use secure configuration when those phases are selected.
+Before real billing: provision real staff accounts/roles, configure payment collection and verified processor/refund receipts, confirm tax/invoice requirements, connect insurance operations and deploy a persistent scheduler. These are not silently inferred from the demo. No credentials belong in chat.

@@ -12,6 +12,7 @@ const modules: { value: 'all' | AuditModule; label: string }[] = [
   { value: 'ceu', label: 'CEU' },
   { value: 'authentication', label: 'Authentication' },
   { value: 'administration', label: 'Administration' },
+  { value: 'billing', label: 'Clinic billing' },
 ];
 
 export default function AuditLogViewer() {

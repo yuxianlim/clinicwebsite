@@ -3,9 +3,10 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { isValidPractitioner } from './appointmentValidation';
-import { findClinicPatientByLastFour } from './auditStore.server';
+import { findClinicPatientByLastFour, findClinicPatientForBooking } from './auditStore.server';
 import { normalizePhone, type Patient } from './clinicData';
 import type { Appointment } from '@/app/context/BookingContext';
+import { isDemoBookingBlocked } from './demoBilling.server';
 
 const databasePath = process.env.CLINIC_APPOINTMENTS_DB_PATH
   ? path.resolve(process.env.CLINIC_APPOINTMENTS_DB_PATH)
@@ -124,11 +125,12 @@ const validateAppointment = (input: NewAppointment) => {
 };
 
 export const createAppointment = (input: NewAppointment): Appointment => {
+  if (isDemoBookingBlocked(input.contact)) throw new InvalidAppointmentError('Booking is unavailable for this request. Please contact clinic staff.');
   const { name, contact } = validateAppointment(input);
   const database = getDatabase();
   const id = randomUUID();
   const timestamp = Date.now();
-  const patient = findClinicPatientByLastFour(normalizePhone(contact).slice(-4));
+  const patient = findClinicPatientForBooking(name, contact);
 
   database.exec('BEGIN IMMEDIATE');
   try {
@@ -300,6 +302,7 @@ export const changeAppointment = (input: {
       database.exec('ROLLBACK');
       throw new AppointmentChangeConflictError('This appointment cannot be changed.');
     }
+    if (isDemoBookingBlocked(row.contact)) throw new AppointmentChangeConflictError('Staff must remove the booking restriction before rescheduling.');
     database.prepare(`
       UPDATE appointments
       SET appointment_date = ?, appointment_time = ?, practitioner = ?

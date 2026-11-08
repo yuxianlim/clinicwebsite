@@ -150,7 +150,7 @@ test('application API workflows use protected sessions, durable records, and ver
       assert.equal(byName('Admin sign-in -> server session').status, 'Connected');
       assert.equal(byName('Kiosk rate limiting -> shared abuse protection').status, 'Connected');
       assert.equal(byName('Application -> Ubuntu host health endpoint').status, 'Planned');
-      assert.equal(byName('Membership scanner -> kiosk input').status, 'Planned');
+      assert.equal(byName('Demo NFC: ACR1252U / NTAG213 -> kiosk input').status, 'Partly Connected', 'format-only simulations do not establish a successful NFC tap');
       assert.equal(byName('Database -> backups and recovery').status, 'Partly Connected');
       assert.equal(byName('SQLite audit store and SHA-256 verifier').status, 'Connected');
       assert.equal(byName('Patient management -> durable records and audit').status, 'Connected');

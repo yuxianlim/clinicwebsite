@@ -63,3 +63,23 @@ export const verifyAdminSession = (token?: string) => {
 
 export const clinicSessionCookieName = SESSION_COOKIE;
 export const clinicSessionTtlSeconds = SESSION_TTL_SECONDS;
+
+const billingSign = (payload: string) => createHmac('sha256', sessionSecret).update(`billing-demo:${payload}`).digest('base64url');
+export const billingDemoCookie = 'clinic_billing_demo_session';
+export const createBillingDemoSession = () => {
+  if (process.env.NODE_ENV === 'production' || !sessionSecret) throw new Error('Demo billing sessions are disabled.');
+  const session = { sessionId: randomUUID(), role: 'clinic_staff' as const, source: 'development-fixture' as const, expiresAt: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS };
+  const payload = Buffer.from(JSON.stringify(session)).toString('base64url');
+  return { token: `${payload}.${billingSign(payload)}`, session };
+};
+export const verifyBillingDemoSession = (token?: string) => {
+  if (process.env.NODE_ENV === 'production' || !sessionSecret || !token) return null;
+  const parts = token.split('.'); if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  const expected = Buffer.from(billingSign(parts[0])); const supplied = Buffer.from(parts[1]);
+  if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) return null;
+  try {
+    const session = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as ReturnType<typeof createBillingDemoSession>['session'];
+    if (session.role !== 'clinic_staff' || session.source !== 'development-fixture' || typeof session.sessionId !== 'string' || !Number.isSafeInteger(session.expiresAt) || session.expiresAt <= Math.floor(Date.now() / 1000)) return null;
+    return session;
+  } catch { return null; }
+};

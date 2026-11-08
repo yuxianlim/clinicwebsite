@@ -60,6 +60,12 @@ test('explicit demo fixtures connect learner records without inventing Stripe ev
     const wrongCard = `${card.cardToken.slice(0, -1)}${card.cardToken.endsWith('A') ? 'B' : 'A'}`;
     assert.throws(() => kiosk.verifyDemoCard(wrongCard));
     const cardMatch = kiosk.verifyDemoCard(card.cardToken);
+    const simulated = kiosk.simulateNfcTap();
+    assert.equal(simulated.reader.source, 'simulated-device');
+    assert.equal(simulated.reader.model, 'ACS ACR1252U');
+    assert.equal(simulated.reader.card, 'NTAG213');
+    assert.equal(simulated.appointment.id, cardMatch.appointment.id);
+    assert.ok(audit.getLatestAuditEvent('check-in', ['Simulated NFC tap received']));
     assert.notEqual(cardMatch.patient.id, verified.patient.id);
     assert.equal(cardMatch.patient.name, 'Fictional Card Check');
     assert.equal(appointments.checkInServerAppointment(cardMatch.appointment.id, cardMatch.checkInToken).ok, true);

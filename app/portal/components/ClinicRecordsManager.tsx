@@ -228,6 +228,7 @@ export default function ClinicRecordsManager({ kind }: Props) {
                       <p className="font-semibold text-slate-900">{appointment.name} • {appointment.date} • {appointment.time}</p>
                       <p className="text-sm text-slate-600">{practitionerLabel(appointment.practitioner)} • {appointment.checkedInAt ? 'Checked in' : appointment.status === 'cancelled' ? 'Canceled' : 'Not checked in'}</p>
                     </div>
+                    {!appointment.patientId && <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Patient match needs staff review. Verify the full name and phone against the patient directory before using visit history or calculating a treatment bill.</p>}
                     {isEditable && (
                       <div className="flex flex-col gap-3 lg:flex-row">
                         <form onSubmit={(event) => void changeAppointment(event, appointment.id)} className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

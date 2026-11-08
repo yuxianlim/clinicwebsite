@@ -98,3 +98,14 @@ Monitoring now uses the user-selected local demo inbox in development. Allowlist
 Current decisions: SMS remains demo-only; local alert inbox selected; clinic billing is now in scope but awaits its service/pricing, payment/insurance, invoice, cancellation/refund and staff-permission rules. Server/database/Ubuntu and managed backup requirements remain deferred. See [NFC_AND_BILLING_REQUIREMENTS.md](NFC_AND_BILLING_REQUIREMENTS.md).
 
 Validation: 25 server tests and 10 browser tests passed, plus lint, TypeScript checking and the production build. Tests cover invalid card tokens, separate card/phone patient mapping, stored check-in, preserved completed appointments, alert payload allowlisting, duplicate/conflicting event references, source separation and inbox receipts. Physical NFC hardware has not been tested in this cloud environment.
+
+
+## Simulated NFC and clinic billing update
+
+The active development NFC connection now uses an explicitly simulated ACS ACR1252U / NTAG213 tap. Run demo setup records a simulated tap through the stored appointment path; the kiosk can repeat it and confirm check-in. Physical hardware remains untested.
+
+The fictional clinic ledger now implements the approved $180/$120 visit pricing and $50 medicine add-on, with server-side completed-history classification, guest full-name/full-phone record matching, exact overpayment refunds, balance due for underpayments, inclusive 24-hour cancellation fees, three-consecutive-no-show blocking/reset rules and day-7 insurance invoices using US federal business days. Admin and scoped signed demo clinic-staff sessions can operate it; client role data grants no API access. Setup seeds two visits, payments and the $60 follow-up overpayment refund idempotently. The Demo billing status row reflects stored fixture evidence and audit health, never real processor settlement.
+
+See [NFC_AND_BILLING_REQUIREMENTS.md](NFC_AND_BILLING_REQUIREMENTS.md) for current instructions; earlier pending-rule notes above describe prior versions. All new financial operations are development-only. Real payments/refunds, insurance claims and physical NFC still need their actual integrations.
+
+Validation: 27 server tests and 10 browser tests passed, along with lint, TypeScript checking and the production build. Fresh local demo setup reported all 10 active Demo connection rows Connected, including the $180 initial visit and $120 follow-up paid $180 with a $60 approved overpayment refund. Physical hardware and real financial processing were not tested.
