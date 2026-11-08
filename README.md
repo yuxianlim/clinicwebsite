@@ -144,3 +144,7 @@ See [SYSTEM_STATUS_RUNBOOK.md](SYSTEM_STATUS_RUNBOOK.md) for the remaining integ
 `npm run test:ui` runs Chromium checks at 320, 390, 768, 1024 and 1440 pixels wide, plus an 844×390 landscape phone. It covers the public site, booking/sign-in/detail dialogs, all kiosk states, and every dashboard section. Checks include document overflow, dialog bounds and keyboard focus, long names/IDs, mobile navigation, status search and expanded evidence. Management and kiosk layout fixtures are fictional browser responses; these checks do not claim provider connectivity or change clinic records.
 
 The runner uses system Chromium when available, or `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. Otherwise install the standard browser with `npx playwright install chromium`. Stop an existing Next.js development server before running the checks, because Next.js uses a development build lock. The test server uses isolated database paths; its fixture database directory is removed afterward. Screenshots are saved under ignored `test-results/responsive` directories.
+
+The current visual direction is English-first, with a warm neutral/cobalt palette and a light staff workspace. See [DESIGN.md](DESIGN.md). English practitioner labels are presentation-only; booking identifiers and stored records remain unchanged.
+
+The public brand is **Aven Clinic**. Navigation, footer and metadata use this name; internal database identifiers and clinical records are independent of the display brand.

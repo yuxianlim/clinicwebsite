@@ -1,38 +1,64 @@
 "use client";
+import { useBooking } from "@/app/context/BookingContext";
+import BrandMark from "./BrandMark";
 
-import { useBooking } from '@/app/context/BookingContext';
-
-const Footer = () => {
-  const { setIsOpen: setBookingOpen } = useBooking();
+export default function Footer() {
+  const { setIsOpen } = useBooking();
   return (
-    <footer style={{ backgroundColor: '#556B42' }} className="text-white py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <footer className="bg-[#192738] px-5 py-12 text-white sm:px-8 sm:py-16">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr]">
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-white">Felicia Ho</h3>
-            <p className="text-white">专业的中医治疗服务，为您的健康保驾护航。</p>
+            <div className="flex items-center gap-3">
+              <BrandMark className="h-10 w-10 text-[#7794ff]" />
+              <h3 className="text-2xl font-medium tracking-tight text-white">
+                Aven.
+              </h3>
+            </div>
+            <p className="mt-5 max-w-xs leading-7 text-[#c1cad8]">
+              Thoughtful care.
+              <br />
+              More room for living.
+            </p>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-white">联系我们</h3>
-            <p className="text-white">地址: 3150 Almaden Expy Ste 111, San Jose, CA 95118</p>
-            <p className="text-white">电话: (408) 555-1234</p>
+            <p className="mb-4 text-xs font-semibold tracking-[0.16em] text-[#a7b4c8]">
+              FIND YOUR WAY
+            </p>
+            <div className="grid gap-3 text-sm">
+              <a href="#services" className="hover:text-[#a4b8ff]">
+                Our care ↗
+              </a>
+              <a href="#about" className="hover:text-[#a4b8ff]">
+                Our clinicians ↗
+              </a>
+              <a href="#location" className="hover:text-[#a4b8ff]">
+                Visit us ↗
+              </a>
+            </div>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4 text-white">快速链接</h3>
-            <ul className="space-y-2">
-              <li><a href="#services" className="text-white hover:text-gray-200">服务与治疗</a></li>
-              <li><a href="#about" className="text-white hover:text-gray-200">医师介绍</a></li>
-              <li><a href="#testimonials" className="text-white hover:text-gray-200">评价</a></li>
-              <li><button onClick={() => setBookingOpen(true)} style={{ backgroundColor: '#ffffff', color: '#556B42' }} className="font-semibold px-4 py-2 rounded shadow-sm hover:bg-gray-100 transition-colors">预约挂号</button></li>
-            </ul>
+            <p className="mb-4 text-xs font-semibold tracking-[0.16em] text-[#a7b4c8]">
+              MAKE TIME FOR YOU
+            </p>
+            <p className="mb-4 text-sm leading-7 text-[#c1cad8]">
+              San Jose, California
+              <br />
+              (408) 555-1234
+            </p>
+            <button
+              onClick={() => setIsOpen(true)}
+              className="inline-flex min-h-11 items-center gap-5 rounded-lg border border-[#71839e] px-4 py-2 text-sm hover:bg-white/10"
+            >
+              Book a visit <span aria-hidden="true">↗</span>
+            </button>
           </div>
         </div>
-        <div className="mt-8 border-t pt-4 text-center text-white" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
-          <p>&copy; 2026 Felicia Ho. All rights reserved.</p>
+        <div className="mt-12 flex flex-wrap justify-between gap-3 border-t border-white/15 pt-5 text-xs text-[#a7b4c8]">
+          <p>© 2026 Aven Clinic. All rights reserved.</p>
+          <p>Acupuncture & whole-person care.</p>
         </div>
       </div>
     </footer>
   );
-};
-
-export default Footer;
+}

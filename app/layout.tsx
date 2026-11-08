@@ -5,9 +5,9 @@ import "./globals.css";
 import { BookingProvider } from "./context/BookingContext";
 
 export const metadata: Metadata = {
-  title: "中医诊所 - 专业中医治疗服务 | San Jose",
-  description: "欢迎来到我们的中医诊所，提供针灸、中药、推拿等专业中医治疗服务。位于San Jose，预约挂号方便。",
-  keywords: "中医, 针灸, 中药, 推拿, 传统中医, San Jose, 健康治疗",
+  title: "Aven Clinic | Acupuncture & Whole-Person Care in San Jose",
+  description: "Personal acupuncture, herbal medicine, and whole-person care in San Jose. Explore our services and book your next visit.",
+  keywords: "acupuncture, herbal medicine, manual therapy, San Jose, whole-person care",
 };
 
 export default function RootLayout({

@@ -98,7 +98,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
     <Modal onClose={handleClose} titleId="auth-title">
         <div className="mb-5 flex items-start justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#556B42]">Secure access</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#3158d8]">Secure access</p>
             <h2 id="auth-title" className="text-2xl font-bold text-slate-800">
               {step === 'role' ? 'Choose your access' : step === 'method' ? 'Select sign-in method' : 'Complete verification'}
             </h2>
@@ -129,7 +129,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
                 <button
                   key={option.key}
                   onClick={() => setLoginMethod(option.key as ClinicAuthMethod)}
-                  className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${loginMethod === option.key ? 'bg-[#556B42] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                  className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition ${loginMethod === option.key ? 'bg-[#3158d8] text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                 >
                   {option.label}
                 </button>
@@ -158,7 +158,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
             ) : null}
 
             <div className="flex flex-col gap-2">
-              <button onClick={() => handleMethodSubmit(loginMethod)} className="w-full rounded-lg bg-[#556B42] px-4 py-3 font-semibold text-white transition hover:opacity-90">
+              <button onClick={() => handleMethodSubmit(loginMethod)} className="w-full rounded-lg bg-[#3158d8] px-4 py-3 font-semibold text-white transition hover:opacity-90">
                 {selectedRole === 'admin' ? 'Continue to verification' : 'Continue to demo'}
               </button>
               <button onClick={() => setStep('role')} className="text-sm font-medium text-slate-600 hover:text-slate-800">
@@ -177,7 +177,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
               </p>
             </div>
             {selectedRole === 'admin' && <input aria-label="Verification code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={6} placeholder="Verification code" className="w-full rounded-lg border border-slate-300 px-3 py-2" />}
-            <button disabled={isAuthenticating} onClick={handleVerification} className="w-full rounded-lg bg-[#556B42] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
+            <button disabled={isAuthenticating} onClick={handleVerification} className="w-full rounded-lg bg-[#3158d8] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
               {isAuthenticating ? 'Verifying...' : selectedRole === 'admin' ? 'Sign in' : 'Continue demo'}
             </button>
             <button onClick={() => setStep('method')} className="text-sm font-medium text-slate-600 hover:text-slate-800">

@@ -1,6 +1,7 @@
 "use client";
 
 import Modal from './Modal';
+import { practitionerLabel } from '@/app/lib/practitionerLabels';
 
 import { useEffect, useState, type CSSProperties, FormEvent } from 'react';
 import { useBooking } from '@/app/context/BookingContext';
@@ -118,7 +119,7 @@ const BookingModal = () => {
       addAppointment(data.appointment);
       setUnavailableTimes((times) => [...new Set([...times, data.appointment!.time])]);
       setFormData({ name: '', contact: '', date: '', time: '', practitioner: '' });
-      setSuccessMessage('预约已提交。Your appointment has been saved.');
+      setSuccessMessage('Your appointment has been saved.');
     } catch (error) {
       setSubmissionError(error instanceof Error ? error.message : 'Your appointment could not be saved. Please try again later.');
     } finally {
@@ -131,7 +132,7 @@ const BookingModal = () => {
   return (
     <Modal onClose={onClose} titleId="booking-title">
         <div className="flex justify-between items-center mb-6">
-          <h2 id="booking-title" className="text-2xl font-bold text-gray-800">预约挂号</h2>
+          <h2 id="booking-title" className="text-2xl font-bold text-gray-800">Book an appointment</h2>
           <button
             onClick={onClose}
             aria-label="Close booking"
@@ -145,7 +146,7 @@ const BookingModal = () => {
         {availabilityError ? <p role="status" className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">{availabilityError} Submission will still be checked securely by the server.</p> : null}
         <form onSubmit={handleSubmit} className="space-y-4" onClick={(e) => e.stopPropagation()}>
           <div>
-            <label htmlFor="booking-name" className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
+            <label htmlFor="booking-name" className="block text-sm font-medium text-gray-700 mb-1">Full name *</label>
             <input
               id="booking-name"
               type="text"
@@ -156,7 +157,7 @@ const BookingModal = () => {
             />
           </div>
           <div>
-            <label htmlFor="booking-contact" className="block text-sm font-medium text-gray-700 mb-1">联系电话 *</label>
+            <label htmlFor="booking-contact" className="block text-sm font-medium text-gray-700 mb-1">Phone number *</label>
             <input
               id="booking-contact"
               type="tel"
@@ -168,7 +169,7 @@ const BookingModal = () => {
             />
           </div>
           <div>
-            <label htmlFor="booking-date" className="block text-sm font-medium text-gray-700 mb-1">预约日期 *</label>
+            <label htmlFor="booking-date" className="block text-sm font-medium text-gray-700 mb-1">Appointment date *</label>
             <input
               id="booking-date"
               type="date"
@@ -176,14 +177,14 @@ const BookingModal = () => {
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none text-gray-900 placeholder-gray-400"
-              style={{ color: formData.date ? '#1f2937' : '#9ca3af', '--tw-ring-color': '#556B42' } as CSSProperties}
-              onFocus={(e) => (e.target.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
+              style={{ color: formData.date ? '#1f2937' : '#9ca3af', '--tw-ring-color': '#3158d8' } as CSSProperties}
+              onFocus={(e) => (e.target.style.boxShadow = '0 0 0 3px rgba(49, 88, 216, 0.1), 0 0 0 1px #3158d8')}
               onBlur={(e) => (e.target.style.boxShadow = '')}
               required
             />
           </div>
           <div>
-            <label htmlFor="booking-practitioner" className="block text-sm font-medium text-gray-700 mb-1">选择医师 *</label>
+            <label htmlFor="booking-practitioner" className="block text-sm font-medium text-gray-700 mb-1">Practitioner *</label>
             <select id="booking-practitioner"
               value={formData.practitioner}
               onChange={(e) => {
@@ -191,19 +192,19 @@ const BookingModal = () => {
                 setSelectColor('text-slate-900');
               }}
               className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm outline-none appearance-none ${selectColor}`}
-              style={{ '--tw-ring-color': '#556B42' } as CSSProperties}
-              onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
+              style={{ '--tw-ring-color': '#3158d8' } as CSSProperties}
+              onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(49, 88, 216, 0.1), 0 0 0 1px #3158d8')}
               onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
               required
             >
-              <option value="" disabled>请选择医师</option>
+              <option value="" disabled>Choose a practitioner</option>
               {practitioners.map((p) => (
-                <option key={p.id} value={p.name}>{p.name}</option>
+                <option key={p.id} value={p.name}>{practitionerLabel(p.name)}</option>
               ))}
             </select>
           </div>
           <div>
-            <label htmlFor="booking-time" className="block text-sm font-medium text-gray-700 mb-1">预约时间 *</label>
+            <label htmlFor="booking-time" className="block text-sm font-medium text-gray-700 mb-1">Appointment time *</label>
             <select id="booking-time"
               value={formData.time}
               onChange={(e) => {
@@ -211,25 +212,25 @@ const BookingModal = () => {
                 setTimeColor('text-slate-900');
               }}
               className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm outline-none appearance-none ${timeColor}`}
-              style={{ '--tw-ring-color': '#556B42' } as CSSProperties}
-              onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
+              style={{ '--tw-ring-color': '#3158d8' } as CSSProperties}
+              onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(49, 88, 216, 0.1), 0 0 0 1px #3158d8')}
               onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
               required
             >
-              <option value="" disabled>选择时间</option>
+              <option value="" disabled>Choose a time</option>
               {generateTimeSlots().map((slot) => {
                 const booked = isTimeSlotBooked(slot);
                 return (
                   <option key={slot} value={slot} disabled={booked}>
-                    {slot}{booked ? ' (已预约)' : ''}
+                    {slot}{booked ? ' (Booked)' : ''}
                   </option>
                 );
               })}
             </select>
           </div>
           <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <button type="button" onClick={onClose} className="min-h-11 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors">取消</button>
-            <button type="submit" disabled={isSubmitting} style={{ backgroundColor: '#556B42' }} className="min-h-11 px-4 py-2 text-white rounded hover:opacity-90 transition-colors disabled:cursor-wait disabled:opacity-60">{isSubmitting ? '正在提交…' : '提交预约'}</button>
+            <button type="button" onClick={onClose} className="min-h-11 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors">Cancel</button>
+            <button type="submit" disabled={isSubmitting} style={{ backgroundColor: '#3158d8' }} className="brand-button w-full sm:w-auto disabled:cursor-wait disabled:opacity-60">{isSubmitting ? 'Saving…' : 'Confirm appointment'}</button>
           </div>
         </form>
     </Modal>

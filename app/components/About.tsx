@@ -1,80 +1,120 @@
 "use client";
 
-import Modal from './Modal';
+import { useState } from "react";
+import Modal from "./Modal";
 
-import { useState } from 'react';
-import Image from 'next/image';
+const practitioners = [
+  {
+    name: "Dr. Li",
+    initials: "LI",
+    specialty: "Acupuncture & pain management",
+    summary:
+      "A focus on acupuncture, comfort, and restoring everyday movement.",
+    bio: "Dr. Li focuses on acupuncture and care for neck, back, and other musculoskeletal concerns. During your visit, you can discuss your symptoms, goals, and the treatment options available.",
+    color: "#e9edfa",
+  },
+  {
+    name: "Dr. Wang",
+    initials: "WA",
+    specialty: "Women’s & family wellbeing",
+    summary:
+      "Personal care through different stages of life, with time to listen.",
+    bio: "Dr. Wang focuses on women’s and family wellbeing, using acupuncture and herbal medicine as part of an individual care plan. Bring your questions and any relevant medical information to your consultation.",
+    color: "#f0e4dc",
+  },
+  {
+    name: "Dr. Zhang",
+    initials: "ZH",
+    specialty: "Chronic concerns & preventive care",
+    summary:
+      "A thoughtful approach to ongoing concerns and long-term wellbeing.",
+    bio: "Dr. Zhang focuses on ongoing health concerns and individual wellbeing. Your consultation is an opportunity to review your history, discuss your priorities, and consider an appropriate plan together.",
+    color: "#e8eae7",
+  },
+];
 
-const About = () => {
-  const practitioners = [
-    {
-      name: '李医生',
-      title: '针灸医学博士',
-      summary: '20年临床经验，擅长治疗颈椎病、腰椎病等，已成功治疗5000+患者',
-      bio: '李医生毕业于北京中医药大学，拥有中医学硕士学位。他在针灸领域有20年的丰富临床经验，曾任北京三甲医院针灸科主任医师。',
-      fullBio: '李医生毕业于北京中医药大学，拥有中医学硕士学位，现为资深针灸医学博士。拥有20年丰富的临床经验，曾任北京大型三甲医院针灸科主任医师。他对针灸穴位的解剖原理和临床应用有深入研究，擅长运用传统针法和现代针灸技术相结合的方式进行治疗。在颈椎病、腰椎病、各类疼痛疾病的治疗上成绩显著，已成功治疗5000余名患者，患者满意度达98%以上。',
-      image: 'https://randomuser.me/api/portraits/men/32.jpg',
-    },
-    {
-      name: '王医生',
-      title: '中医妇科儿科专家',
-      summary: '15年妇儿专业经验，擅长月经调理、妇科疾病和儿童保健，帮助众多患者恢复健康',
-      bio: '王医生毕业于上海中医药大学，拥有中医妇科硕士学位。她在妇科和儿科领域有15年的专业临床经验。',
-      fullBio: '王医生毕业于上海中医药大学，获中医妇科学硕士学位。拥有15年专业的妇科和儿科临床经验，现为资深中医妇科和儿科医生。她在月经不调、更年期综合征、痛经、不孕症等妇科常见病的治疗上有独特的见解，同时擅长用纯中医方法治疗小儿积食、小儿呼吸道反复感染、小儿过敏性疾病等儿童常见疾病。王医生始终倡导自然疗法，坚持不给患者开含激素的药物。她关心每一位患者的身心健康，已帮助数千名女性和儿童恢复健康。',
-      image: 'https://randomuser.me/api/portraits/women/44.jpg',
-    },
-    {
-      name: '张医生',
-      title: '中医内科学博士',
-      summary: '研究生学历，专攻慢性病调理和体质改善，学术成果丰硕，发表论文15+篇',
-      bio: '张医生毕业于中国中医科学院研究生院，获中医内科学博士学位。他在慢性病调理领域有丰富经验。',
-      fullBio: '张医生毕业于中国中医科学院研究生院，获中医内科学博士学位，现为高级中医内科医生。他在中医内科学领域深造多年，对脾胃学说、气血阴阳调理有独到研究。张医生擅长运用辨证论治的方法治疗高血压、糖尿病前期、高血脂、肥胖症等代谢性疾病，同时致力于亚健康状态的调理和体质改善。他在国家级学术期刊发表学术论文15篇以上，参与多项国家中医药研究课题。秉承\"预防重于治疗\"的理念，为患者制定详细的调理方案和饮食起居指导。',
-      image: 'https://randomuser.me/api/portraits/men/55.jpg',
-    },
-  ];
-
-  const [selectedPractitioner, setSelectedPractitioner] = useState<typeof practitioners[0] | null>(null);
-
+export default function About() {
+  const [selected, setSelected] = useState<
+    (typeof practitioners)[number] | null
+  >(null);
   return (
-    <section id="about" className="py-20 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="text-3xl font-bold text-center mb-12">医师介绍</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {practitioners.map((p, index) => (
-            <div
-              key={index}
-              onClick={() => setSelectedPractitioner(p)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedPractitioner(p); } } }
-              className="text-center bg-white p-6 rounded-lg shadow-md hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer transform"
+    <section id="about" className="bg-[#f8f7f3] px-5 py-16 sm:px-8 sm:py-24">
+      <div className="mx-auto max-w-7xl">
+        <p className="eyebrow">02 / Meet your care team</p>
+        <div className="mt-4 mb-10 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <h2 className="section-title max-w-xl">
+            People first.
+            <br />
+            Always.
+          </h2>
+          <p className="max-w-sm leading-7 text-[#657184]">
+            A good care relationship starts with listening. Get to know the
+            practitioners behind your next visit.
+          </p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          {practitioners.map((person) => (
+            <button
+              key={person.name}
+              onClick={() => setSelected(person)}
+              className="group min-w-0 text-left"
             >
-              <Image onError={(event) => { if (!event.currentTarget.src.endsWith('/practitioner-placeholder.svg')) { event.currentTarget.srcset = ''; event.currentTarget.src = '/practitioner-placeholder.svg'; } }} unoptimized width={128} height={128} src={p.image} alt={`${p.name} 医师照片`} className="w-32 h-32 rounded-full mx-auto mb-4 hover:ring-4 ring-slate-400 transition-all" />
-              <h3 className="text-xl font-semibold mb-2 text-slate-800">{p.name}</h3>
-              <p className="text-sm text-gray-500 mb-3">{p.title}</p>
-              <p className="text-gray-600 min-h-[60px]">{p.summary}</p>
-            </div>
+              <div
+                style={{ backgroundColor: person.color }}
+                className="relative mb-5 flex aspect-[5/4] items-center justify-center overflow-hidden rounded-xl"
+              >
+                <span
+                  className="text-7xl font-light tracking-[-0.08em] text-[#192738]/60 transition-transform duration-300 group-hover:scale-110"
+                  aria-hidden="true"
+                >
+                  {person.initials}
+                </span>
+                <span
+                  className="absolute right-4 bottom-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-xl text-[#3158d8]"
+                  aria-hidden="true"
+                >
+                  ↗
+                </span>
+              </div>
+              <h3 className="text-2xl font-medium tracking-tight text-[#192738]">
+                {person.name}
+              </h3>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[#3158d8]">
+                {person.specialty}
+              </p>
+              <p className="mt-3 text-sm leading-7 text-[#657184]">
+                {person.summary}
+              </p>
+            </button>
           ))}
         </div>
       </div>
-
-      {selectedPractitioner && (
-        <Modal onClose={() => setSelectedPractitioner(null)} titleId="practitioner-title">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 id="practitioner-title" className="text-2xl font-bold text-gray-800">{selectedPractitioner.name}</h2>
-                <p className="text-sm text-gray-500">{selectedPractitioner.title}</p>
-              </div>
-              <button
-                onClick={() => setSelectedPractitioner(null)}
-                aria-label="Close details"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-2xl text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+      {selected && (
+        <Modal onClose={() => setSelected(null)} titleId="practitioner-title">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow mb-2">Your care team</p>
+              <h2
+                id="practitioner-title"
+                className="text-2xl font-medium text-[#192738]"
               >
-                ×
-              </button>
+                {selected.name}
+              </h2>
+              <p className="mt-2 text-sm text-[#3158d8]">
+                {selected.specialty}
+              </p>
             </div>
-            <p className="text-gray-600 mb-4">{selectedPractitioner.fullBio}</p>
+            <button
+              onClick={() => setSelected(null)}
+              aria-label="Close details"
+              className="h-11 w-11 shrink-0 rounded-lg text-2xl hover:bg-slate-100"
+            >
+              ×
+            </button>
+          </div>
+          <p className="leading-8 text-[#657184]">{selected.bio}</p>
         </Modal>
       )}
     </section>
   );
-};
-
-export default About;
+}

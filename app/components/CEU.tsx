@@ -19,19 +19,19 @@ type PaymentValues = {
 const topics: Topic[] = [
   {
     id: 'fall-prevention',
-    title: 'Fall Prevention',
+    title: 'Fall prevention',
     summary: 'Learn practical screening and prevention strategies to reduce fall risk in older adults.',
     price: '$95',
   },
   {
     id: 'women-health',
-    title: 'Women Health',
+    title: 'Women’s health',
     summary: 'Explore evidence-based approaches for women’s wellness, hormone support, and preventive care.',
     price: '$105',
   },
   {
     id: 'children-health',
-    title: 'Children Health',
+    title: 'Children’s health',
     summary: 'Discover child-centered care principles that support growth, development, and everyday wellness.',
     price: '$90',
   },
@@ -157,29 +157,29 @@ const PaymentForm = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+    <div className="bg-white rounded-xl border border-[#dce1e5] p-6 sm:p-8">
       <div className="mb-6">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#556B42]">Payment Form</p>
-        <h3 className="text-2xl font-semibold text-[#556B42] mt-2">Register for {selectedTopicData.title}</h3>
-        <p className="text-[#556B42]/80 mt-2">Complete your payment to reserve your seat in this CEU session.</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#192738]">Payment Form</p>
+        <h3 className="text-2xl font-semibold text-[#192738] mt-2">Register for {selectedTopicData.title}</h3>
+        <p className="text-[#657184] mt-2">Complete your payment to reserve your seat in this CEU session.</p>
       </div>
 
       <form onSubmit={handlePaymentSubmit} className="grid gap-4">
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-[#556B42] mb-2" htmlFor="name">Full name</label>
+            <label className="block text-sm font-medium text-[#192738] mb-2" htmlFor="name">Full name</label>
             <input
               id="name"
               name="name"
               value={paymentValues.name}
               onChange={handlePaymentChange}
               required
-              className="w-full border border-[#d9dfcf] rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#556B42]"
+              className="w-full border border-[#dce1e8] rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3158d8]"
               placeholder="Your name"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#556B42] mb-2" htmlFor="email">Email</label>
+            <label className="block text-sm font-medium text-[#192738] mb-2" htmlFor="email">Email</label>
             <input
               id="email"
               name="email"
@@ -187,15 +187,15 @@ const PaymentForm = ({
               value={paymentValues.email}
               onChange={handlePaymentChange}
               required
-              className="w-full border border-[#d9dfcf] rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#556B42]"
+              className="w-full border border-[#dce1e8] rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#3158d8]"
               placeholder="you@example.com"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#556B42] mb-2">Card details</label>
-          <div className="border border-[#d9dfcf] rounded-lg p-3 bg-white">
+          <label className="block text-sm font-medium text-[#192738] mb-2">Card details</label>
+          <div className="border border-[#dce1e8] rounded-lg p-3 bg-white">
             <CardElement options={{ hidePostalCode: true }} />
           </div>
         </div>
@@ -203,12 +203,12 @@ const PaymentForm = ({
         <button
           type="submit"
           disabled={isLoading || !stripe || !elements}
-          className="w-full bg-[#556B42] text-white py-3 rounded-lg font-semibold hover:opacity-90 transition-colors disabled:opacity-60"
+          className="w-full bg-[#3158d8] text-white py-3 rounded-lg font-semibold hover:opacity-90 transition-colors disabled:opacity-60"
         >
           {isLoading ? 'Processing…' : `Pay ${selectedTopicData.price}`}
         </button>
 
-        {statusMessage && <p className="text-sm text-[#556B42] font-medium">{statusMessage}</p>}
+        {statusMessage && <p className="text-sm text-[#192738] font-medium">{statusMessage}</p>}
       </form>
     </div>
   );
@@ -220,29 +220,29 @@ const CEU = () => {
   const selectedTopicData = topics.find((topic) => topic.id === selectedTopic);
 
   return (
-    <section id="ceu" className="scroll-mt-24 bg-[#f7f3e8] py-20 px-4 sm:px-6 lg:px-8">
+    <section id="ceu" className="scroll-mt-24 bg-[#eef1fb] px-5 py-16 sm:px-8 sm:py-24">
       <div className="max-w-6xl mx-auto">
         <div className="mb-10 max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#556B42] mb-3">CEU / Continuing Education</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#556B42] mb-4">Choose a CEU topic and continue to payment</h2>
-          <p className="text-lg text-[#556B42]/80 leading-8">
-            Select one of our featured learning tracks to register for an upcoming educational session and complete your secure payment.
+          <p className="eyebrow mb-4">For curious minds / Continuing education</p>
+          <h2 className="section-title mb-5">Keep your curiosity growing.</h2>
+          <p className="text-lg text-[#657184] leading-8">
+            Continuing education for practitioners. Explore a learning track and register for an upcoming session.
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-10">
           {topics.map((topic) => (
-            <div key={topic.id} className="bg-white rounded-2xl shadow-lg p-6 flex flex-col h-full">
+            <div key={topic.id} className="bg-white rounded-xl border border-[#dce1e5] p-6 flex flex-col h-full">
               <div className="mb-4">
-                <h3 className="text-xl font-semibold text-[#556B42] mb-2">{topic.title}</h3>
-                <p className="text-[#556B42]/80 leading-7">{topic.summary}</p>
+                <h3 className="text-xl font-semibold text-[#192738] mb-2">{topic.title}</h3>
+                <p className="text-[#657184] leading-7">{topic.summary}</p>
               </div>
-              <div className="mt-auto flex items-center justify-between pt-4 border-t border-[#e8ebdf]">
-                <span className="text-sm font-semibold text-[#556B42]">{topic.price}</span>
+              <div className="mt-auto flex items-center justify-between pt-4 border-t border-[#dce1e8]">
+                <span className="text-sm font-semibold text-[#192738]">{topic.price}</span>
                 <button
                   type="button"
                   onClick={() => setSelectedTopic(topic.id)}
-                  className="bg-[#556B42] text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors"
+                  className="bg-[#3158d8] text-white px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors"
                 >
                   Register
                 </button>
@@ -256,7 +256,7 @@ const CEU = () => {
             <PaymentForm selectedTopicData={selectedTopicData} />
           </Elements>
         ) : (
-          <p role="status" className="rounded-lg bg-white p-4 text-[#556B42]">Online registration payments are currently unavailable. Please contact the clinic to register.</p>
+          <p role="status" className="rounded-lg bg-white p-4 text-[#192738]">Online registration payments are currently unavailable. Please contact the clinic to register.</p>
         ))}
       </div>
     </section>

@@ -40,15 +40,24 @@ test('all pages, dashboard sections, and dialogs adapt to the viewport', async (
       await expect(page.locator('#mobile-navigation')).toHaveCount(0);
     }
     for (const section of ['services', 'about', 'testimonials']) {
-      await page.locator(`#${section} [role="button"]`).first().click();
+      await page.locator(`#${section} button`).first().click();
       await checkDialog(page);
       await page.keyboard.press('Escape');
       await expect(page.getByRole('dialog')).toHaveCount(0);
     }
-    await page.getByRole('button', { name: '预约挂号', exact: true }).filter({ visible: true }).first().click();
+    await page.getByRole('button', { name: 'Book a visit', exact: true }).filter({ visible: true }).first().click();
     await checkDialog(page);
-    await expect(page.getByRole('button', { name: '提交预约', exact: true })).toBeEnabled();
-    await page.getByRole('button', { name: '提交预约', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('button', { name: 'Confirm appointment', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Confirm appointment', exact: true }).scrollIntoViewIfNeeded();
+    // English display labels must still submit the existing practitioner identifier.
+    const slotByProject: Record<string, string> = { 'small-phone': '9:00 AM', phone: '9:30 AM', tablet: '10:00 AM', laptop: '10:30 AM', desktop: '11:00 AM', 'phone-landscape': '11:30 AM' };
+    await page.getByLabel('Full name *', { exact: true }).fill('Layout Patient');
+    await page.getByLabel('Phone number *', { exact: true }).fill('4085550199');
+    await page.getByLabel('Appointment date *', { exact: true }).fill('2099-01-01');
+    await page.getByLabel('Practitioner *', { exact: true }).selectOption({ label: 'Dr. Li' });
+    await page.getByLabel('Appointment time *', { exact: true }).selectOption(slotByProject[testInfo.project.name]);
+    await page.getByRole('button', { name: 'Confirm appointment', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Your appointment has been saved.' })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Register', exact: true }).first().click();
     await expect(page.getByRole('status').filter({ hasText: 'Online registration payments are currently unavailable' })).toBeVisible();
