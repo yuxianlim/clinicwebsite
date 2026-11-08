@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { type ClinicAuthMethod, type ClinicAuthRole, type ClinicAuthSession } from '@/app/lib/clinicAuth';
 
@@ -10,7 +10,7 @@ interface ClinicAuthModalProps {
   onAuthenticated: (session: ClinicAuthSession) => void;
 }
 
-type AuthStep = 'role' | 'method' | 'face';
+type AuthStep = 'role' | 'method' | 'verification';
 
 export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: ClinicAuthModalProps) {
   const router = useRouter();
@@ -19,19 +19,9 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
   const [loginMethod, setLoginMethod] = useState<ClinicAuthMethod>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setStep('role');
-      setSelectedRole('patient');
-      setLoginMethod('email');
-      setEmail('');
-      setPassword('');
-      setError('');
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -50,10 +40,10 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
       return;
     }
 
-    setStep('face');
+    setStep('verification');
   };
 
-  const handleFaceVerification = async () => {
+  const handleVerification = async () => {
     if (selectedRole === 'admin') {
       setIsAuthenticating(true);
       setError('');
@@ -61,7 +51,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
         const response = await fetch('/api/clinic/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, method: loginMethod }),
+          body: JSON.stringify({ email, password, code, method: loginMethod }),
         });
         const data = await response.json() as { error?: string };
         if (!response.ok) {
@@ -82,7 +72,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
       role: selectedRole,
       method: loginMethod,
       email: email || (selectedRole === 'admin' ? 'admin@clinic.com' : 'patient@clinic.com'),
-      faceVerified: true,
+      verificationCompleted: true,
       permissions: selectedRole === 'admin' ? ['audit-log:read'] : [],
     });
     onClose();
@@ -109,7 +99,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#556B42]">Secure access</p>
             <h2 className="text-2xl font-bold text-slate-800">
-              {step === 'role' ? 'Choose your access' : step === 'method' ? 'Select sign-in method' : 'Complete 2-step verification'}
+              {step === 'role' ? 'Choose your access' : step === 'method' ? 'Select sign-in method' : 'Complete verification'}
             </h2>
           </div>
           <button onClick={handleClose} className="text-xl text-slate-500 hover:text-slate-700">×</button>
@@ -133,7 +123,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-1">
               {[
                 { key: 'email', label: 'Email address and password' },
-                { key: 'google', label: 'Continue with Google' },
+                ...(selectedRole === 'patient' ? [{ key: 'google', label: 'Google demo' }] : []),
               ].map((option) => (
                 <button
                   key={option.key}
@@ -166,7 +156,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
 
             <div className="flex flex-col gap-2">
               <button onClick={() => handleMethodSubmit(loginMethod)} className="w-full rounded-lg bg-[#556B42] px-4 py-3 font-semibold text-white transition hover:opacity-90">
-                Continue to face verification
+                {selectedRole === 'admin' ? 'Continue to verification' : 'Continue to demo'}
               </button>
               <button onClick={() => setStep('role')} className="text-sm font-medium text-slate-600 hover:text-slate-800">
                 Back
@@ -175,16 +165,17 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
           </div>
         ) : null}
 
-        {step === 'face' ? (
+        {step === 'verification' ? (
           <div className="space-y-4">
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-              <p className="text-sm font-semibold text-slate-700">Face recognition required</p>
+              <p className="text-sm font-semibold text-slate-700">{selectedRole === 'admin' ? 'Authenticator verification' : 'Patient access demo'}</p>
               <p className="mt-2 text-sm text-slate-500">
-                This second factor confirms your identity before you can continue as a {selectedRole}.
+                {selectedRole === 'admin' ? 'Enter the six-digit code from your authenticator app.' : 'This demo does not verify your identity. For patient services, contact the clinic.'}
               </p>
             </div>
-            <button disabled={isAuthenticating} onClick={handleFaceVerification} className="w-full rounded-lg bg-[#556B42] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
-              {isAuthenticating ? 'Verifying...' : 'Complete face verification'}
+            {selectedRole === 'admin' && <input aria-label="Verification code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} maxLength={6} placeholder="Verification code" className="w-full rounded-lg border border-slate-300 px-3 py-2" />}
+            <button disabled={isAuthenticating} onClick={handleVerification} className="w-full rounded-lg bg-[#556B42] px-4 py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-60">
+              {isAuthenticating ? 'Verifying...' : selectedRole === 'admin' ? 'Sign in' : 'Continue demo'}
             </button>
             <button onClick={() => setStep('method')} className="text-sm font-medium text-slate-600 hover:text-slate-800">
               Back

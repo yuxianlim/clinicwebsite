@@ -9,7 +9,7 @@ export interface ClinicAuthSession {
   role: ClinicAuthRole;
   method: ClinicAuthMethod;
   email?: string;
-  faceVerified: boolean;
+  verificationCompleted: boolean;
   permissions: ClinicPermission[];
 }
 
@@ -18,7 +18,7 @@ const allowedPermissions: ClinicPermission[] = ['audit-log:read'];
 export const hasClinicPermission = (session: ClinicAuthSession | null, permission: ClinicPermission) =>
   Boolean(
     session?.authenticated
-    && session.faceVerified
+    && session.verificationCompleted
     && session.role === 'admin'
     && session.permissions.includes(permission),
   );
@@ -26,6 +26,7 @@ export const hasClinicPermission = (session: ClinicAuthSession | null, permissio
 export const saveClinicAuth = (session: ClinicAuthSession) => {
   if (typeof window === 'undefined') return;
   window.sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  window.dispatchEvent(new Event('clinic-auth-changed'));
 };
 
 export const readClinicAuth = (): ClinicAuthSession | null => {
@@ -44,7 +45,7 @@ export const readClinicAuth = (): ClinicAuthSession | null => {
       role: parsed.role as ClinicAuthRole,
       method: parsed.method === 'google' ? 'google' : 'email',
       email: parsed.email,
-      faceVerified: Boolean(parsed.faceVerified),
+      verificationCompleted: Boolean(parsed.verificationCompleted),
       permissions: Array.isArray(parsed.permissions)
         ? parsed.permissions.filter((permission): permission is ClinicPermission =>
           allowedPermissions.includes(permission as ClinicPermission),
@@ -59,4 +60,5 @@ export const readClinicAuth = (): ClinicAuthSession | null => {
 export const clearClinicAuth = () => {
   if (typeof window === 'undefined') return;
   window.sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  window.dispatchEvent(new Event('clinic-auth-changed'));
 };

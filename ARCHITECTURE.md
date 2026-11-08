@@ -60,7 +60,7 @@ flowchart LR
   KioskCheckIn -->|safe server audit event| AuditStore
   AuthUI -->|email, password, and sign-in method| SessionAPI
   SessionAPI -->|signed session cookie| SessionCookie
-  AuthUI -->|role and client-side face-verified UI state| ClinicAdmin
+  AuthUI -->|role and client-side navigation state| ClinicAdmin
   Booking -->|name, contact, date, time, practitioner| AppointmentAPI
   AppointmentAPI -->|validate, reserve slot, persist| AppointmentStore
   AppointmentAPI -->|safe event metadata| AuditStore
@@ -113,7 +113,7 @@ The public page renders `Nav` and `BookingModal`. The modal submits name, contac
 
 ### Patient verification and kiosk check-in
 
-The kiosk posts the last four phone digits to `/api/kiosk/lookup`. The server validates the input, rate limits by forwarded client IP per process, finds a unique match in the durable SQLite patient store, and looks up today's appointment in the authoritative SQLite appointment store. Ambiguous suffixes fail closed rather than choosing a patient. The response includes only a display name, patient ID, appointment summary, and a five-minute single-use token. Confirming check-in posts that token and appointment ID to `/api/kiosk/check-in`; the server consumes the token and updates the appointment transactionally, refusing duplicate check-ins. Server handlers write safe audit outcomes directly; browser-supplied audit claims are not trusted. Last-four matching is still weaker than a real identity provider, and the membership scanner is unavailable.
+The kiosk posts the last four phone digits to `/api/kiosk/lookup`. The server validates the input, rate limits through a shared SQLite sliding window across local workers, finds a unique match in the durable SQLite patient store, and looks up today's appointment in the authoritative SQLite appointment store. Ambiguous suffixes fail closed rather than choosing a patient. The response includes only a display name, patient ID, appointment summary, and a five-minute single-use token. Confirming check-in posts that token and appointment ID to `/api/kiosk/check-in`; the server consumes the token and updates the appointment transactionally, refusing duplicate check-ins. Server handlers write safe audit outcomes directly; browser-supplied audit claims are not trusted. Last-four matching is still weaker than a real identity provider, and the membership scanner is unavailable.
 
 | Connection | Information moved | Status | Evidence |
 | --- | --- | --- | --- |
@@ -138,12 +138,12 @@ The administrator-only `POST /api/system-status/integration-simulation` accepts 
 
 ### Administrator access and operations
 
-`ClinicAuthModal` submits administrator sign-in details to `/api/clinic/session`. In development, the route accepts any non-empty email and issues a signed HttpOnly cookie; this is a mock and does not verify a real identity. In production, the route checks configured email/password credentials before issuing the signed cookie. The face-verification step is client-side mock UI and is not a server-verified second factor. Protected APIs validate the signed cookie independently of client `sessionStorage`. The dashboard keeps this connection Partly Connected because real identity-provider and second-factor verification are not implemented. Patient sign-in remains a demo flow; Google OAuth is not offered for administrator access and is not an identity-provider connection.
+`ClinicAuthModal` submits email/password and an authenticator code to `/api/clinic/session`. The server verifies credentials and TOTP, atomically prevents code reuse in SQLite, and then issues a signed HttpOnly cookie. Missing configuration fails closed. Only `NODE_ENV=development` plus `ENABLE_DEVELOPMENT_ADMIN_DEMO=true` enables a labeled demo bypass; production cannot issue or accept demo sessions. Protected APIs validate the signed cookie independently of client `sessionStorage`. The current verified cookie, rather than the outcome of a later failed login attempt, establishes authentication evidence. Patient sign-in remains a demo flow.
 
 | Connection | Information moved | Status | Evidence |
 | --- | --- | --- | --- |
-| Sign-in form -> session API -> signed cookie | Email, password, and sign-in method; signed admin session returned in an HttpOnly cookie | Development mock; production checks configured email/password; no real second factor | [ClinicAuthModal.tsx](app/components/ClinicAuthModal.tsx), [api/clinic/session/route.ts](app/api/clinic/session/route.ts), [serverClinicSession.ts](app/lib/serverClinicSession.ts) |
-| Client auth state -> portal navigation | Role, permissions, client-side face-verified UI state | UI gating only; not a security boundary | [clinicAuth.ts](app/lib/clinicAuth.ts), [portal/page.tsx](app/portal/page.tsx) |
+| Sign-in form -> session API -> signed cookie | Email, password, and sign-in method; signed admin session returned in an HttpOnly cookie | Configured email/password plus replay-protected server TOTP; explicit development-only demo is separate | [ClinicAuthModal.tsx](app/components/ClinicAuthModal.tsx), [api/clinic/session/route.ts](app/api/clinic/session/route.ts), [serverClinicSession.ts](app/lib/serverClinicSession.ts) |
+| Client auth state -> portal navigation | Role, permissions, client-side navigation state | UI gating only; not a security boundary | [clinicAuth.ts](app/lib/clinicAuth.ts), [portal/page.tsx](app/portal/page.tsx) |
 | Signed cookie -> audit and System Status APIs | Verified admin role and audit-read permission | Working server-side gate | [api/audit-log/route.ts](app/api/audit-log/route.ts) `GET`, [api/system-status/route.ts](app/api/system-status/route.ts) `GET`, [serverClinicSession.ts](app/lib/serverClinicSession.ts) `verifyAdminSession` |
 | Patient management -> durable records and audit | Validated patient name and phone number; generated opaque patient ID returned | Admin API persists the record and atomically appends a detail-free audit event; seed records are migrated with insert-if-absent behavior | [ClinicRecordsManager.tsx](app/portal/components/ClinicRecordsManager.tsx), [api/admin/patients/route.ts](app/api/admin/patients/route.ts), [auditStore.server.ts](app/lib/auditStore.server.ts) |
 | Staff directory -> durable records and audit | Validated name, role, and hours; generated staff ID returned | Admin API persists directory records and atomically appends a detail-free audit event; this does not implement HR, payroll, or staff role permissions | [ClinicRecordsManager.tsx](app/portal/components/ClinicRecordsManager.tsx), [api/admin/staff/route.ts](app/api/admin/staff/route.ts), [auditStore.server.ts](app/lib/auditStore.server.ts) |
@@ -171,8 +171,14 @@ Ubuntu host and database server are not connected in the current repository. The
 ## End-to-End Gaps
 
 - Appointment and check-in data use transactional SQLite on one application instance; multi-instance deployments need shared storage and operational recovery guarantees.
-- Patient identity, membership scanning, Google sign-in, and face verification need real provider integrations and server-side authorization.
+- Patient identity, membership scanning, and patient Google sign-in need selected providers/hardware and server-side verification. Administrator access uses server-verified password plus TOTP.
 - Audit event writes need authenticated server-side producers, rate limiting, and operational monitoring; a public client POST can be forged.
 - Stripe outcomes need webhook signature verification before payment status is authoritative or enrollment is granted.
 - CEU enrollment is durable and tied to verified payment; certificate issuance still needs verifiable completion/attendance rules and a certificate workflow.
 - Production operation needs managed persistent storage, backups, monitoring/alerting, and documented retention/compliance controls. The hash chain alone does not provide these.
+
+## Shared request budgets and recovery
+
+`SharedRateLimiter` uses SQLite `BEGIN IMMEDIATE` transactions for an eight-request/60-second kiosk window shared by lookup and check-in across workers on the same host. It fails closed on storage failure. A trusted proxy header is opt-in; no submitted phone digits are stored as limiter keys. Independent hosts require a distributed store. OTP replay state is persistent per configured local authentication store.
+
+`npm run backup` takes online snapshots of the audit and appointment stores, verifies isolated restored copies, and writes protected manifests. `npm run restore` refuses existing destinations and revalidates checksums, integrity and the audit chain. A current local receipt can establish only partial operational readiness: scheduling, retention and encrypted off-host recovery still need a deployment-specific configuration. Recovery must rotate session and TOTP secrets if security state is not restored. See the system status runbook.

@@ -11,17 +11,20 @@ const sessionSecret = process.env.CLINIC_SESSION_SECRET
 interface ServerClinicSession {
   sessionId: string;
   role: 'admin';
+  authenticationMethod: 'password-totp' | 'development-demo';
   permissions: ['audit-log:read'];
   expiresAt: number;
 }
 
 const sign = (payload: string) => createHmac('sha256', sessionSecret).update(payload).digest('base64url');
 
-export const createAdminSession = () => {
+export const createAdminSession = (authenticationMethod: ServerClinicSession['authenticationMethod']) => {
+  if (process.env.NODE_ENV === 'production' && authenticationMethod === 'development-demo') throw new Error('Demo sessions are not allowed in production.');
   if (!sessionSecret) throw new Error('CLINIC_SESSION_SECRET is required.');
   const session: ServerClinicSession = {
     sessionId: randomUUID(),
     role: 'admin',
+    authenticationMethod,
     permissions: ['audit-log:read'],
     expiresAt: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
   };
@@ -31,7 +34,9 @@ export const createAdminSession = () => {
 
 export const verifyAdminSession = (token?: string) => {
   if (!token || !sessionSecret) return null;
-  const [payload, signature] = token.split('.');
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [payload, signature] = parts;
   if (!payload || !signature) return null;
 
   const expected = Buffer.from(sign(payload));
@@ -42,8 +47,12 @@ export const verifyAdminSession = (token?: string) => {
     const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as ServerClinicSession;
     if (
       session.role !== 'admin'
+      || !['password-totp', 'development-demo'].includes(session.authenticationMethod)
+      || (process.env.NODE_ENV === 'production' && session.authenticationMethod !== 'password-totp')
       || !Array.isArray(session.permissions)
       || !session.permissions.includes('audit-log:read')
+      || typeof session.sessionId !== 'string'
+      || !Number.isSafeInteger(session.expiresAt)
       || session.expiresAt <= Math.floor(Date.now() / 1000)
     ) return null;
     return session;

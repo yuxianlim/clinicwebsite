@@ -24,7 +24,6 @@ interface AppointmentGridProps {
 const AppointmentGrid = ({
   selectedDate,
   selectedPractitioner,
-  onPractitionerChange,
 }: AppointmentGridProps) => {
   const { getAppointmentsByDate } = useBooking();
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);

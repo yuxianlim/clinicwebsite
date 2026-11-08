@@ -65,16 +65,16 @@ export async function POST(request: Request) {
   }
 
   const event = body as Record<string, unknown>;
-  const module = event.module;
+  const auditModule = event.module;
   const action = event.action;
   const relatedRecordId = event.relatedRecordId;
   const result = event.result;
 
   if (
-    typeof module !== 'string'
-    || !Object.prototype.hasOwnProperty.call(clientActions, module)
+    typeof auditModule !== 'string'
+    || !Object.prototype.hasOwnProperty.call(clientActions, auditModule)
     || typeof action !== 'string'
-    || !clientActions[module as AuditModule]?.includes(action)
+    || !clientActions[auditModule as AuditModule]?.includes(action)
     || typeof relatedRecordId !== 'string'
     || !isSafeRelatedRecordId(relatedRecordId)
     || typeof result !== 'string'
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
   try {
     const saved = appendAuditEvent({
-      module: module as AuditModule,
+      module: auditModule as AuditModule,
       action,
       relatedRecordId,
       result: result as AuditResult,

@@ -4,7 +4,7 @@ import BookingModal from './BookingModal';
 import { useBooking } from '@/app/context/BookingContext';
 
 const Hero = () => {
-  const { isOpen: isModalOpen, setIsOpen: setIsModalOpen } = useBooking();
+  const { setIsOpen: setIsModalOpen } = useBooking();
 
   return (
     <section 

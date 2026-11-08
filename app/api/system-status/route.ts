@@ -1,3 +1,6 @@
+import { getKioskRateLimitStatus } from '@/app/lib/kioskRateLimit.server';
+import { latestVerifiedBackup } from '@/app/lib/backupStatus.server';
+import { administratorAuthenticationConfigured, administratorDemoEnabled } from '@/app/lib/adminAuthentication.server';
 import { cookies } from 'next/headers';
 import { clinicSessionCookieName, verifyAdminSession } from '@/app/lib/serverClinicSession';
 import { getAppointmentStoreStatus } from '@/app/lib/appointmentStore.server';
@@ -94,6 +97,10 @@ const withDependencyGroups = <T extends { name: string; status: string; evidence
   let testSource = 'Application/runtime evidence; no separate end-to-end test recorded.';
   if (isFormatAdapter) {
     testSource = 'Development Simulation';
+  } else if (item.name === 'Kiosk rate limiting -> shared abuse protection') {
+    testSource = 'Current shared-store health check; cross-process contention is covered by the test suite.';
+  } else if (item.name === 'Database -> backups and recovery') {
+    testSource = 'Local backup receipt and snapshot checksum verification; managed recovery remains incomplete.';
   } else if ([
     'Application -> Ubuntu host health endpoint',
     'Application -> Database server health endpoint',
@@ -110,15 +117,15 @@ const withDependencyGroups = <T extends { name: string; status: string; evidence
     'Staff management -> durable records and audit',
     'Appointment changes -> shared storage and audit',
   ].includes(item.name) && item.status === 'Connected') {
-    testSource = 'Authenticated admin portal end-to-end test using fictional development records.';
+    testSource = 'Persisted administrative records and audit evidence; no browser test is recorded by this request.';
   } else if (item.name === 'Kiosk -> patient list and appointment state' && item.status === 'Connected') {
-    testSource = 'Kiosk UI and API end-to-end test using a fictional patient created in the durable clinic patient store.';
+    testSource = 'Persisted kiosk check-in and audit evidence.';
   } else if (item.name === 'Public booking -> appointment state' && item.status === 'Connected') {
-    testSource = 'Public booking API end-to-end test using fictional booking records.';
+    testSource = 'Persisted server-side appointment evidence.';
   } else if (item.name === 'Booking and kiosk -> audit event API' && item.status === 'Connected') {
-    testSource = 'Public booking and kiosk server handlers; audit chain verified after fictional end-to-end tests.';
+    testSource = 'Persisted server-side booking and kiosk audit events; chain verified during this request.';
   } else if (item.name === 'Admin portal -> audit read API' || item.name === 'Administrator session -> protected status API') {
-    testSource = 'Authenticated browser request; unauthenticated access rejected during local verification.';
+    testSource = 'Current authenticated request; authorization is enforced by the shared session guard.';
   } else if (item.name === 'Admin portal -> System Status API') {
     testSource = 'Authenticated Architecture Test Center request and response.';
   } else if (item.status === 'Unknown' || item.status === 'Partly Connected') {
@@ -273,7 +280,13 @@ export async function GET() {
   }
 
   const administratorLoginEvidenceTrusted = auditStatus?.chainValid === true;
-  const administratorSignInStatus = 'Partly Connected';
+  const administratorSignInStatus = administratorAuthenticationConfigured() && !administratorDemoEnabled()
+    && session.authenticationMethod === 'password-totp'
+    && administratorLoginEvidenceTrusted
+    ? 'Connected' : 'Partly Connected';
+  let kioskLimiterStatus: ReturnType<typeof getKioskRateLimitStatus> | null = null;
+  try { kioskLimiterStatus = getKioskRateLimitStatus(); } catch { /* Fail closed in kiosk routes. */ }
+  const backupReceipt = await latestVerifiedBackup();
   let appointmentStoreStatus: ReturnType<typeof getAppointmentStoreStatus> | null = null;
   try {
     appointmentStoreStatus = getAppointmentStoreStatus();
@@ -448,12 +461,12 @@ export async function GET() {
         kind: 'Connection',
         name: 'Admin sign-in -> server session',
         status: administratorSignInStatus,
-        description: 'Development sign-in is a mock; it does not verify a real identity or second factor.',
+        description: administratorDemoEnabled() ? 'Explicit development demo sign-in is enabled; it does not verify an identity.' : 'Server-side email/password and authenticator codes are required; codes cannot be reused across workers.',
         connectedComponents: ['ClinicAuthModal', '/api/clinic/session', 'serverClinicSession'],
-        informationExchanged: 'Email, password, and sign-in method are submitted; a signed HttpOnly cookie is issued on success. Secrets are not returned in status data.',
+        informationExchanged: 'Email, password, authenticator code and sign-in method are submitted; a signed HttpOnly cookie is issued on success. Secrets are not returned in status data.',
         evidence: [
-          'app/api/clinic/session/route.ts validates credentials only in production and issues a signed cookie.',
-          'The face-verification step in ClinicAuthModal is a client-side mock.',
+          'The session API requires configured credentials and a server-verified TOTP code, except when an explicit development-only demo flag is enabled.',
+          'The authenticator code is verified server-side and consumed atomically before issuing an HttpOnly cookie.',
           !administratorLoginEvidenceTrusted
             ? 'Administrator sign-in events are not trusted because the audit chain could not be verified.'
             : latestAdministratorLogin
@@ -461,7 +474,7 @@ export async function GET() {
               : 'No administrator sign-in attempt has been recorded.',
         ],
         lastTestedAt: administratorLoginEvidenceTrusted ? latestAdministratorLogin?.occurredAt ?? null : null,
-        missingRequirement: 'Real identity provider and real server-verified second-factor verification.',
+        missingRequirement: administratorSignInStatus === 'Connected' ? null : 'Configure CLINIC_ADMIN_EMAIL, CLINIC_ADMIN_PASSWORD, CLINIC_SESSION_SECRET (32+ characters), and CLINIC_ADMIN_TOTP_SECRET (32+ Base32 characters); disable the development demo and complete an authenticator sign-in.',
         safeErrorMessage: null,
       },
       {
@@ -525,7 +538,7 @@ export async function GET() {
         connectedComponents: ['KioskClient', '/api/kiosk/lookup', '/api/kiosk/check-in', 'SQLite clinic_patients', 'SQLite appointments'],
         informationExchanged: 'Last four phone digits are sent over POST and checked against the durable clinic patient store; a short-lived single-use token is required to check in. Only patient display name, ID, appointment time, and practitioner return to the screen.',
         evidence: [
-          'POST /api/kiosk/lookup validates four digits, applies a per-process IP attempt limit, finds the patient in SQLite clinic_patients and today’s appointment in SQLite appointments, then issues a short-lived token.',
+          'POST /api/kiosk/lookup validates four digits, applies a shared SQLite attempt limit, finds the patient in SQLite clinic_patients and today’s appointment in SQLite appointments, then issues a short-lived token.',
           'POST /api/kiosk/check-in consumes the single-use token and transactionally records check-in; server-side audit events do not include submitted phone digits.',
           'Public booking links a phone match from the same durable patient store; newly registered admin patients can be looked up by the kiosk.',
           latestSuccessfulKioskCheckIn
@@ -552,7 +565,7 @@ export async function GET() {
         connectedComponents: ['KioskClient', '/api/kiosk/lookup', 'SQLite clinic_patients'],
         informationExchanged: 'Current screen submits last four phone digits. A future OIDC adapter receives iss, sub, aud, iat, exp, nonce, and email_verified claims; only after signature/issuer/audience/time/nonce checks may it return a limited patient and appointment summary with a short-lived single-use check-in token. Raw identity tokens are never returned or logged.',
         evidence: [
-          'Server-side lookup rejects malformed input and applies a per-process request limit.',
+          'Server-side lookup rejects malformed input and applies a shared SQLite request limit.',
           'Patient matching uses the durable clinic patient store; no provider assertion is accepted.',
           'The development adapter only checks documented OIDC claim shape; provider signature verification is not configured, and simulated claims never authenticate a patient.',
         ],
@@ -580,14 +593,18 @@ export async function GET() {
       {
         kind: 'Connection',
         name: 'Kiosk rate limiting -> shared abuse protection',
-        status: 'Partly Connected',
-        description: 'Lookup and check-in have a process-local attempt limiter, not shared across instances.',
-        connectedComponents: ['Kiosk lookup API', 'Kiosk check-in API', 'per-process limiter'],
-        informationExchanged: 'Client IP-derived attempt counts and retry windows; no patient lookup digits are part of the limiter key.',
-        evidence: ['Both kiosk routes invoke the existing process-local limiter before processing the request.'],
-        lastTestedAt: checkedAt,
-        missingRequirement: 'Use a shared rate-limit store before deploying multiple application instances.',
-        safeErrorMessage: 'Too many attempts. Please see the front desk for assistance.',
+        status: kioskLimiterStatus ? 'Connected' : 'Failed',
+        description: 'Lookup and check-in share an atomic SQLite sliding window across workers on this host. Cross-host deployments require a distributed store.',
+        connectedComponents: ['Kiosk lookup API', 'Kiosk check-in API', 'SharedRateLimiter', 'SQLite request_attempts'],
+        informationExchanged: 'Hashed proxy-provided client key (or a conservative common bucket), attempt count, and retry window. Patient lookup digits are never keys.',
+        evidence: kioskLimiterStatus ? [
+          `Shared rate-limit storage was readable at ${kioskLimiterStatus.checkedAt}.`,
+          'BEGIN IMMEDIATE serializes concurrent worker updates; both kiosk routes fail closed if the store is unavailable.',
+          'The eight-request/60-second window is shared by lookup and check-in. Configure KIOSK_TRUSTED_IP_HEADER only behind a proxy that overwrites it.',
+        ] : ['The shared rate-limit store could not be read. Kiosk requests are refused while protection is unavailable.'],
+        lastTestedAt: kioskLimiterStatus?.checkedAt ?? checkedAt,
+        missingRequirement: kioskLimiterStatus ? null : 'Restore writable persistent KIOSK_RATE_LIMIT_DB_PATH storage shared by every local worker.',
+        safeErrorMessage: kioskLimiterStatus ? null : 'Check-in is temporarily unavailable. Please see the front desk.',
       },
       {
         kind: 'Connection',
@@ -622,14 +639,14 @@ export async function GET() {
       {
         kind: 'Connection',
         name: 'Admin portal -> audit read API',
-        status: 'Connected',
-        description: 'The server accepted this admin cookie for the current status response; audit reads use the same guard.',
+        status: auditStatus?.chainValid ? 'Connected' : 'Failed',
+        description: auditStatus?.chainValid ? 'The administrator cookie is accepted and the audit store is readable with a valid chain; audit reads independently enforce the same guard.' : 'Audit reads cannot establish a healthy readable audit chain.',
         connectedComponents: ['Admin portal', 'HttpOnly admin cookie', '/api/audit-log GET', 'SQLite audit_log'],
         informationExchanged: 'Up to 500 audit events and a full-chain validity result; no-cache response.',
-        evidence: ['Both GET /api/system-status and GET /api/audit-log call verifyAdminSession.', 'Unauthenticated API request was observed returning 403 in local verification.'],
+        evidence: ['Both GET /api/system-status and GET /api/audit-log call verifyAdminSession.', 'The audit-read route independently checks the administrator cookie.'],
         lastTestedAt: checkedAt,
-        missingRequirement: null,
-        safeErrorMessage: null,
+        missingRequirement: auditStatus?.chainValid ? null : 'Restore a readable audit store and investigate chain verification failures.',
+        safeErrorMessage: auditStatus?.chainValid ? null : 'Audit records could not be verified.',
       },
       {
         kind: 'Connection',
@@ -764,7 +781,7 @@ export async function GET() {
         kind: 'Connection',
         name: 'Patient identity provider -> kiosk verification',
         status: 'Planned',
-        description: 'Patient lookup uses the existing static patient list; no identity-provider service is connected.',
+        description: 'Patient lookup uses the durable SQLite patient store; no identity-provider service is connected.',
         connectedComponents: ['Patient identity provider', 'kiosk lookup API'],
         informationExchanged: 'A future provider assertion would be verified server-side without storing or logging its secret.',
         evidence: ['No identity-provider client, callback, or server assertion verifier exists in the project.'],
@@ -854,14 +871,18 @@ export async function GET() {
       {
         kind: 'Connection',
         name: 'Database -> backups and recovery',
-        status: 'Planned',
-        description: 'SQLite stores application data locally; no managed backup, retention, or restore-test workflow is configured.',
-        connectedComponents: ['SQLite appointment/audit stores', 'backup storage', 'restore procedure'],
-        informationExchanged: 'Would require protected snapshots, retention metadata, and evidence from a successful isolated restore test.',
-        evidence: ['The application documents persistent local database paths but has no backup or restore automation.'],
-        lastTestedAt: null,
-        missingRequirement: 'Configure protected backups and retention, then verify recovery from a disposable copy.',
-        safeErrorMessage: null,
+        status: backupReceipt ? 'Partly Connected' : 'Unknown',
+        description: 'Online SQLite snapshots and an isolated restore verifier are implemented; managed scheduling, protected off-host storage, and retention still need configuration.',
+        connectedComponents: ['SQLite appointment/audit stores', 'npm run backup', 'isolated restore verifier'],
+        informationExchanged: 'Private database snapshots, SHA-256 checksums, integrity checks, and full audit-chain verification. No patient data is returned to this dashboard.',
+        evidence: [
+          'npm run backup includes committed WAL contents using the SQLite backup API, restores disposable copies, and checks their integrity and audit chain.',
+          backupReceipt ? `A backup and isolated restore check completed at ${backupReceipt.checkedAt}; snapshot checksums were rechecked during this request.` : 'No intact matching backup with a restore receipt from the last 24 hours is available.',
+          'Local snapshots are consistent per database; use a maintenance window for cross-database consistency. A local snapshot alone does not establish disaster recovery.',
+        ],
+        lastTestedAt: backupReceipt?.checkedAt ?? null,
+        missingRequirement: 'Run npm run backup with a protected CLINIC_BACKUP_DIR; configure scheduling, encrypted off-host copies and retention, and test recovery on a separate host.',
+        safeErrorMessage: backupReceipt ? null : 'A recent verified backup is unavailable.',
       },
     ], stripeWebhookConfigured),
   }, { headers: { 'Cache-Control': 'no-store' } });

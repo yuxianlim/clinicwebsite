@@ -1,25 +1,24 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useBooking } from '@/app/context/BookingContext';
 import ClinicAuthModal from './ClinicAuthModal';
-import { clearClinicAuth, readClinicAuth, saveClinicAuth, type ClinicAuthSession } from '@/app/lib/clinicAuth';
+import { clearClinicAuth, saveClinicAuth, type ClinicAuthSession } from '@/app/lib/clinicAuth';
+
+import { useClinicAuth } from '@/app/lib/useClinicAuth';
 
 const Nav = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showClinicMenu, setShowClinicMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authState, setAuthState] = useState<ClinicAuthSession | null>(null);
+  const authState = useClinicAuth();
   const { setIsOpen: setBookingOpen } = useBooking();
   const router = useRouter();
 
-  useEffect(() => {
-    setAuthState(readClinicAuth());
-  }, []);
 
-  const isAdmin = authState?.authenticated && authState.role === 'admin' && authState.faceVerified;
+  const isAdmin = authState?.authenticated && authState.role === 'admin' && authState.verificationCompleted;
   const isLoggedIn = authState?.authenticated;
 
   const handleClinicAccess = () => {
@@ -40,14 +39,12 @@ const Nav = () => {
   const handleLogout = () => {
     void fetch('/api/clinic/session', { method: 'DELETE' });
     clearClinicAuth();
-    setAuthState(null);
     setShowClinicMenu(false);
     router.push('/');
   };
 
   const handleAuthenticated = (session: ClinicAuthSession) => {
     saveClinicAuth(session);
-    setAuthState(session);
   };
 
   const openLoginModal = () => {
@@ -122,7 +119,7 @@ const Nav = () => {
                   {isAdmin ? (
                     <button onClick={() => { setIsOpen(false); setShowClinicMenu(false); handleClinicAccess(); }} style={{ color: '#556B42' }} className="block w-full text-left px-3 py-2 hover:opacity-70 hover:bg-gray-50 rounded">Clinic System</button>
                   ) : null}
-                  <button onClick={() => { setIsOpen(false); isLoggedIn ? handleLogout() : openLoginModal(); }} style={{ backgroundColor: '#556B42' }} className="block w-full text-left px-3 py-2 text-white rounded hover:opacity-90 transition-colors">{isLoggedIn ? 'Logout' : 'Login'}</button>
+                  <button onClick={() => { setIsOpen(false); if (isLoggedIn) handleLogout(); else openLoginModal(); }} style={{ backgroundColor: '#556B42' }} className="block w-full text-left px-3 py-2 text-white rounded hover:opacity-90 transition-colors">{isLoggedIn ? 'Logout' : 'Login'}</button>
                   <button onClick={() => { setIsOpen(false); setBookingOpen(true); }} style={{ backgroundColor: '#556B42' }} className="block w-full text-left px-3 py-2 text-white rounded hover:opacity-90 transition-colors">预约挂号</button>
                 </div>
               </div>
@@ -130,7 +127,7 @@ const Nav = () => {
           )}
         </div>
       </nav>
-      <ClinicAuthModal isOpen={showAuthModal} onClose={closeAuthModal} onAuthenticated={handleAuthenticated} />
+      {showAuthModal && <ClinicAuthModal isOpen onClose={closeAuthModal} onAuthenticated={handleAuthenticated} />}
     </>
   );
 };

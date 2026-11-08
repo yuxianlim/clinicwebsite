@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, FormEvent } from 'react';
 import { useBooking } from '@/app/context/BookingContext';
 import type { Appointment } from '@/app/context/BookingContext';
 
@@ -171,7 +171,7 @@ const BookingModal = () => {
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none text-gray-900 placeholder-gray-400"
-              style={{ color: formData.date ? '#1f2937' : '#9ca3af', '--tw-ring-color': '#556B42' } as any}
+              style={{ color: formData.date ? '#1f2937' : '#9ca3af', '--tw-ring-color': '#556B42' } as CSSProperties}
               onFocus={(e) => (e.target.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
               onBlur={(e) => (e.target.style.boxShadow = '')}
               required
@@ -186,7 +186,7 @@ const BookingModal = () => {
                 setSelectColor('text-slate-900');
               }}
               className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm outline-none appearance-none ${selectColor}`}
-              style={{ '--tw-ring-color': '#556B42' } as any}
+              style={{ '--tw-ring-color': '#556B42' } as CSSProperties}
               onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
               onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
               required
@@ -206,7 +206,7 @@ const BookingModal = () => {
                 setTimeColor('text-slate-900');
               }}
               className={`w-full h-12 px-4 pr-12 border border-gray-300 rounded-lg bg-white shadow-sm outline-none appearance-none ${timeColor}`}
-              style={{ '--tw-ring-color': '#556B42' } as any}
+              style={{ '--tw-ring-color': '#556B42' } as CSSProperties}
               onFocus={(e) => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(85, 107, 66, 0.1), 0 0 0 1px #556B42')}
               onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
               required

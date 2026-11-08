@@ -42,7 +42,8 @@ const initialPaymentValues: PaymentValues = {
   email: '',
 };
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = publishableKey ? loadStripe(publishableKey) : null;
 
 const PaymentForm = ({
   selectedTopicData,
@@ -201,7 +202,7 @@ const PaymentForm = ({
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !stripe || !elements}
           className="w-full bg-[#556B42] text-white py-3 rounded-lg font-semibold hover:opacity-90 transition-colors disabled:opacity-60"
         >
           {isLoading ? 'Processing…' : `Pay ${selectedTopicData.price}`}
@@ -250,11 +251,13 @@ const CEU = () => {
           ))}
         </div>
 
-        {selectedTopicData && (
+        {selectedTopicData && (stripePromise ? (
           <Elements stripe={stripePromise}>
             <PaymentForm selectedTopicData={selectedTopicData} />
           </Elements>
-        )}
+        ) : (
+          <p role="status" className="rounded-lg bg-white p-4 text-[#556B42]">Online registration payments are currently unavailable. Please contact the clinic to register.</p>
+        ))}
       </div>
     </section>
   );

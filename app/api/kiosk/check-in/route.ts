@@ -1,13 +1,12 @@
 import { appendAuditEvent } from '@/app/lib/auditStore.server';
 import { checkInServerAppointment } from '@/app/lib/appointmentStore.server';
-import { isKioskRateLimited } from '@/app/lib/kioskRateLimit.server';
+import { checkKioskRequest } from '@/app/lib/kioskRateLimit.server';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
-  if (isKioskRateLimited(request)) {
-    return Response.json({ error: 'Too many check-in attempts. Please see the front desk for assistance.' }, { status: 429 });
-  }
+  const limitedResponse = checkKioskRequest(request);
+  if (limitedResponse) return limitedResponse;
 
   let body: unknown;
   try {

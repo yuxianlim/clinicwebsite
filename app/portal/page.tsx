@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { hasClinicPermission, readClinicAuth, type ClinicAuthSession } from '@/app/lib/clinicAuth';
+import { hasClinicPermission } from '@/app/lib/clinicAuth';
+import { useClinicAuth } from '@/app/lib/useClinicAuth';
 import AuditLogViewer from './components/AuditLogViewer';
 import ClinicRecordsManager from './components/ClinicRecordsManager';
 import SystemStatusViewer from './components/SystemStatusViewer';
@@ -51,11 +52,7 @@ export default function PortalPage() {
   const [activeSection, setActiveSection] = useState<SectionId>(
     process.env.NODE_ENV === 'development' ? 'system-status' : 'dashboard',
   );
-  const [authSession, setAuthSession] = useState<ClinicAuthSession | null>(null);
-
-  useEffect(() => {
-    setAuthSession(readClinicAuth());
-  }, []);
+  const authSession = useClinicAuth();
 
   const canReadAuditLog = hasClinicPermission(authSession, 'audit-log:read');
 
@@ -92,9 +89,9 @@ export default function PortalPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-semibold text-white">Billing & Payments</h2>
-                  <p className="text-sm text-slate-400">Track charges, payments, invoices, refunds, and methods in one place.</p>
+                  <p className="text-sm text-slate-400">Preview only: these are sample amounts, not clinic financial records. Billing is not configured.</p>
                 </div>
-                <button className="rounded-lg bg-[#556B42] px-4 py-2 text-sm font-semibold text-white">Create invoice</button>
+                <button disabled title="Invoice creation requires a configured billing service and clinic billing rules." className="rounded-lg bg-[#556B42] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Create invoice</button>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {billingItems.map((item) => (

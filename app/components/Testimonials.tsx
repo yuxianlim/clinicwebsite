@@ -43,7 +43,7 @@ const Testimonials = () => {
                     </span>
                   ))}
                 </div>
-                <p className="text-gray-600 mb-4 flex-1 text-sm">"{t.text}"</p>
+                <p className="text-gray-600 mb-4 flex-1 text-sm">&ldquo;{t.text}&rdquo;</p>
               </div>
               <p className="font-semibold text-center text-sm">- {t.name}</p>
             </div>

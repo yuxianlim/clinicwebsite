@@ -6,15 +6,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx --test tests/*.test.ts",
+    "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore.ts"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.16.0"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.0",
     "@stripe/stripe-js": "^9.10.0",
+    "geist": "^1.9.2",
     "next": "^16.2.3",
+    "otpauth": "^9.6.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "stripe": "^22.3.2"
@@ -24,9 +29,10 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "eslint": "^10.2.0",
+    "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.2"
   }
 }

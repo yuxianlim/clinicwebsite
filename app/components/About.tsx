@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 const About = () => {
   const practitioners = [
@@ -43,7 +44,7 @@ const About = () => {
               onClick={() => setSelectedPractitioner(p)}
               className="text-center bg-white p-6 rounded-lg shadow-md hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer transform"
             >
-              <img src={p.image} alt={`${p.name} 医师照片`} className="w-32 h-32 rounded-full mx-auto mb-4 hover:ring-4 ring-slate-400 transition-all" />
+              <Image unoptimized width={128} height={128} src={p.image} alt={`${p.name} 医师照片`} className="w-32 h-32 rounded-full mx-auto mb-4 hover:ring-4 ring-slate-400 transition-all" />
               <h3 className="text-xl font-semibold mb-2 text-slate-800">{p.name}</h3>
               <p className="text-sm text-gray-500 mb-3">{p.title}</p>
               <p className="text-gray-600 min-h-[60px]">{p.summary}</p>
