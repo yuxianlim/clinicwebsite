@@ -48,6 +48,7 @@ type SystemStatus = {
 };
 
 const STATUS_REFRESH_INTERVAL_MS = 30_000;
+const CHANGE_CHECK_INTERVAL_MS = 2_000;
 
 const isSystemStatus = (value: unknown): value is SystemStatus => {
   if (!value || typeof value !== 'object') return false;
@@ -156,30 +157,101 @@ export default function SystemStatusViewer() {
 
   useEffect(() => {
     let active = true;
-    const refresh = async () => {
-      if (active) setRefreshing(true);
+    let authorizationLost = false;
+    let revision = '';
+    let checkingChanges = false;
+    let lastFullCheck = 0;
+    let pendingRefresh = false;
+    let refreshingRequest: Promise<boolean> | null = null;
+    const controller = new AbortController();
+    const readStatus = async (url: string) => {
+      const requestController = new AbortController();
+      const abort = () => requestController.abort();
+      controller.signal.addEventListener('abort', abort, { once: true });
+      if (controller.signal.aborted) abort();
+      const timeout = window.setTimeout(abort, 15_000);
       try {
-        const response = await fetch('/api/system-status', { cache: 'no-store' });
-        if (!response.ok) throw new Error('Administrator access is required to view system status.');
-        const data: unknown = await response.json();
-        if (!isSystemStatus(data)) throw new Error('System status response was invalid. Reload the page or contact the system administrator.');
-        if (active) {
-          setSystemStatus(data);
-          setError('');
-        }
-      } catch (requestError: unknown) {
-        if (active) setError(requestError instanceof Error ? requestError.message : 'System status is unavailable.');
+        const response = await fetch(url, { cache: 'no-store', signal: requestController.signal });
+        const data: unknown = response.ok ? await response.json() : null;
+        return { response, data };
       } finally {
-        if (active) setRefreshing(false);
+        window.clearTimeout(timeout);
+        controller.signal.removeEventListener('abort', abort);
       }
     };
-
-    void refresh();
-    const interval = window.setInterval(() => void refresh(), STATUS_REFRESH_INTERVAL_MS);
-
+    const refresh = async () => {
+      pendingRefresh = true;
+      if (refreshingRequest) return refreshingRequest;
+      refreshingRequest = (async () => {
+        let success = false;
+        if (active) setRefreshing(true);
+        do {
+          pendingRefresh = false;
+          try {
+            const { response, data } = await readStatus('/api/system-status');
+            if (response.status === 401 || response.status === 403) {
+              authorizationLost = true;
+              if (active) setSystemStatus(null);
+              throw new Error('Your administrator session has ended. Sign in again to resume live updates.');
+            }
+            if (!response.ok) throw new Error('System status is temporarily unavailable. The last successful result is shown.');
+            if (!isSystemStatus(data)) throw new Error('System status response was invalid. Please retry later.');
+            if (active && !authorizationLost) {
+              setSystemStatus(data); setError('');
+              lastFullCheck = Date.now(); success = true;
+            }
+          } catch (requestError: unknown) {
+            success = false;
+            if (active) setError(authorizationLost
+              ? 'Your administrator session has ended. Sign in again to resume live updates.'
+              : requestError instanceof Error && requestError.name === 'AbortError'
+                ? 'Status refresh timed out. Updates will retry automatically.'
+                : requestError instanceof Error ? requestError.message : 'Live updates are temporarily unavailable.');
+          }
+        } while (pendingRefresh && active && !authorizationLost);
+        return success;
+      })();
+      try { return await refreshingRequest; }
+      finally { refreshingRequest = null; if (active) setRefreshing(false); }
+    };
+    const checkChanges = async () => {
+      if (!active || checkingChanges || authorizationLost || document.visibilityState === 'hidden') return;
+      checkingChanges = true;
+      try {
+        const { response, data } = await readStatus('/api/system-status/revision');
+        if (response.status === 401 || response.status === 403) {
+          authorizationLost = true;
+          if (active) { setSystemStatus(null); setError('Your administrator session has ended. Sign in again to resume live updates.'); }
+          return;
+        }
+        if (!response.ok) throw new Error('Change detection is unavailable.');
+        if (!data || typeof data !== 'object' || !('revision' in data) || typeof data.revision !== 'string' || !/^[0-9a-f]{64}$/.test(data.revision)) throw new Error('Invalid change revision.');
+        if (data.revision !== revision || Date.now() - lastFullCheck >= STATUS_REFRESH_INTERVAL_MS)
+          if (await refresh()) revision = data.revision;
+      } catch {
+        if (active && Date.now() - lastFullCheck >= STATUS_REFRESH_INTERVAL_MS) await refresh();
+        else if (active) setError('Live change detection is temporarily unavailable. Periodic checks will continue.');
+      } finally { checkingChanges = false; }
+    };
+    const resume = () => {
+      if (document.visibilityState !== 'hidden') {
+        authorizationLost = false;
+        void refresh();
+        void checkChanges();
+      }
+    };
+    void checkChanges();
+    const interval = window.setInterval(() => void checkChanges(), CHANGE_CHECK_INTERVAL_MS);
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', resume);
+    document.addEventListener('visibilitychange', resume);
     return () => {
       active = false;
+      controller.abort();
       window.clearInterval(interval);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume);
+      document.removeEventListener('visibilitychange', resume);
     };
   }, [refreshKey]);
 
@@ -191,11 +263,11 @@ export default function SystemStatusViewer() {
       const data = await response.json() as { error?: string; result?: string };
       if (!response.ok) throw new Error(data.error ?? 'Stripe test could not be completed.');
       setStripeTestMessage(data.result ?? 'Stripe test completed.');
-      setRefreshKey((current) => current + 1);
     } catch (requestError: unknown) {
       setStripeTestMessage(requestError instanceof Error ? requestError.message : 'Stripe test could not be completed.');
     } finally {
       setTestingStripe(false);
+      setRefreshKey((current) => current + 1);
     }
   };
 
@@ -222,6 +294,7 @@ export default function SystemStatusViewer() {
       setIntegrationTestError(requestError instanceof Error ? requestError.message : 'Development integration simulation failed.');
     } finally {
       setIntegrationTestsRunning(false);
+      setRefreshKey((current) => current + 1);
     }
   };
 
@@ -320,7 +393,7 @@ export default function SystemStatusViewer() {
           <span>Environment: <strong className="font-medium text-slate-800">{systemStatus.environment}</strong></span>
           {systemStatus.stripeMode && <span>Stripe: <strong className="font-medium text-slate-800">{systemStatus.stripeMode === 'test' ? 'Sandbox' : systemStatus.stripeMode === 'live' ? 'Live' : 'Not configured'}</strong></span>}
           <span>Checked: <time dateTime={systemStatus.checkedAt}>{new Date(systemStatus.checkedAt).toLocaleString()}</time></span>
-          <span>{refreshing ? 'Refreshing status...' : 'Auto-refreshes every 30 seconds'}</span>
+          <span>{refreshing ? 'Refreshing status…' : 'Live updates · checks for saved changes every 2 seconds'}</span>
         </div>
       ) : null}
       {error ? <p className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700" role="alert">{error}</p> : null}

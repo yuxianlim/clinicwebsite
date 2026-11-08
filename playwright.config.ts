@@ -25,6 +25,7 @@ export default defineConfig({
     { name: 'phone-landscape', use: { viewport: { width: 844, height: 390 } } },
     { name: 'workflows', testMatch: '**/clinic-workflows.spec.ts', use: { viewport: { width: 1440, height: 900 } } },
     { name: 'learning', testMatch: '**/learning.spec.ts', use: { viewport: { width: 390, height: 844 } } },
+    { name: 'live-status', testMatch: '**/status-live.spec.ts', use: { viewport: { width: 1280, height: 800 } } },
   ],
   webServer: {
     command: 'npm run dev -- --hostname 127.0.0.1 --port 3102', url: 'http://127.0.0.1:3102', reuseExistingServer: false,

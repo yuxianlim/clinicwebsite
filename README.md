@@ -84,7 +84,7 @@ Administrator sign-in verifies configured email/password credentials plus a repl
 
 ## Development / System Status
 
-The administrator-only Architecture Test Center at `/portal` refreshes its dashboard evidence every 30 seconds. Workflow states are `Passed`, `Failed`, `Not Tested`, `Planned`, or `Not Applicable`; these are derived from verifiable application evidence, not from a simulator claiming an external integration works. Ubuntu host and database server entries remain `Planned` until their server-side health probes are configured and return component-specific evidence. Future assignments can configure these server-only variables:
+The administrator-only Architecture Test Center at `/portal` automatically detects saved changes every two seconds and refreshes the displayed evidence, including writes from other tabs and Stripe webhooks. It refreshes immediately on tab focus/reconnection and rechecks expiring evidence/external health every 30 seconds. Hidden tabs pause polling; status updates do not create test payments or run simulations. Workflow states are `Passed`, `Failed`, `Not Tested`, `Planned`, or `Not Applicable`; these are derived from verifiable application evidence, not from a simulator claiming an external integration works. Ubuntu host and database server entries remain `Planned` until their server-side health probes are configured and return component-specific evidence. Future assignments can configure these server-only variables:
 
 - `UBUNTU_HOST_HEALTH_URL`
 - `UBUNTU_HOST_HEALTH_TOKEN` (optional)
