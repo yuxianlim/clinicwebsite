@@ -1,5 +1,7 @@
 "use client";
 
+import Modal from './Modal';
+
 import { useState } from 'react';
 
 const Services = () => {
@@ -20,8 +22,8 @@ const Services = () => {
           {services.map((service, index) => (
             <div
               key={index}
-              onClick={() => setSelectedService(service)}
-              className="bg-white p-6 rounded-lg shadow-md hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer transform"
+              onClick={() => setSelectedService(service)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedService(service); } } }
+              className="bg-white p-6 rounded-lg shadow-md hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer transform"
             >
               <h3 className="text-xl font-semibold mb-4 text-slate-800">{service.title}</h3>
               <p className="text-gray-600">{service.summary}</p>
@@ -31,20 +33,19 @@ const Services = () => {
       </div>
 
       {selectedService && (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedService(null)}>
-          <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setSelectedService(null)} titleId="service-title">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-800">{selectedService.title}</h2>
+              <h2 id="service-title" className="text-2xl font-bold text-gray-800">{selectedService.title}</h2>
               <button
                 onClick={() => setSelectedService(null)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                aria-label="Close details"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-2xl text-gray-500 hover:bg-gray-100 hover:text-gray-700"
               >
                 ×
               </button>
             </div>
             <p className="text-gray-600 mb-4">{selectedService.details}</p>
-          </div>
-        </div>
+        </Modal>
       )}
     </section>
   );

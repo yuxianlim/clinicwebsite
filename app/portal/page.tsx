@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { hasClinicPermission } from '@/app/lib/clinicAuth';
 import { useClinicAuth } from '@/app/lib/useClinicAuth';
@@ -53,6 +54,7 @@ export default function PortalPage() {
     process.env.NODE_ENV === 'development' ? 'system-status' : 'dashboard',
   );
   const authSession = useClinicAuth();
+  const [navigationOpen, setNavigationOpen] = useState(false);
 
   const canReadAuditLog = hasClinicPermission(authSession, 'audit-log:read');
 
@@ -66,27 +68,27 @@ export default function PortalPage() {
     switch (activeSection) {
       case 'audit':
         return canReadAuditLog ? <AuditLogViewer /> : (
-          <div className="rounded-xl border border-rose-900 bg-slate-900/70 p-6" role="alert">
+          <div className="rounded-xl border border-rose-900 bg-slate-900/70 p-4 sm:p-6" role="alert">
             <h2 className="text-xl font-semibold text-white">Access denied</h2>
             <p className="mt-2 text-sm text-slate-300">An authenticated administrator with the audit-log read permission is required.</p>
           </div>
         );
       case 'system-status':
         return canReadAuditLog ? <SystemStatusViewer /> : (
-          <div className="rounded-xl border border-rose-900 bg-slate-900/70 p-6" role="alert">
+          <div className="rounded-xl border border-rose-900 bg-slate-900/70 p-4 sm:p-6" role="alert">
             <h2 className="text-xl font-semibold text-white">Access denied</h2>
             <p className="mt-2 text-sm text-slate-300">An authenticated administrator with the audit-log read permission is required.</p>
           </div>
         );
       case 'patients':
-        return <ClinicRecordsManager kind="patients" />;
+        return <ClinicRecordsManager key="patients" kind="patients" />;
       case 'appointments':
-        return <ClinicRecordsManager kind="appointments" />;
+        return <ClinicRecordsManager key="appointments" kind="appointments" />;
       case 'billing':
         return (
           <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6">
-              <div className="mb-4 flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 sm:p-6">
+              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-semibold text-white">Billing & Payments</h2>
                   <p className="text-sm text-slate-400">Preview only: these are sample amounts, not clinic financial records. Billing is not configured.</p>
@@ -102,7 +104,7 @@ export default function PortalPage() {
                 ))}
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6">
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 sm:p-6">
               <h3 className="text-lg font-semibold text-white">Payment workflow</h3>
               <ul className="mt-4 space-y-2 text-sm text-slate-300">
                 <li>• Consultation fees, treatment charges, and herbal medicine charges can be grouped by visit.</li>
@@ -112,7 +114,7 @@ export default function PortalPage() {
           </div>
         );
       case 'staff':
-        return <ClinicRecordsManager kind="staff" />;
+        return <ClinicRecordsManager key="staff" kind="staff" />;
       case 'dashboard':
       default:
         return (
@@ -126,8 +128,8 @@ export default function PortalPage() {
                 </div>
               ))}
             </div>
-            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 sm:p-6">
                 <h2 className="text-xl font-semibold text-white">Notifications & announcements</h2>
                 <ul className="mt-4 space-y-3 text-sm text-slate-300">
                   {notifications.map((item) => (
@@ -135,7 +137,7 @@ export default function PortalPage() {
                   ))}
                 </ul>
               </div>
-              <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6">
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4 sm:p-6">
                 <h2 className="text-xl font-semibold text-white">Upcoming follow-ups</h2>
                 <ul className="mt-4 space-y-3 text-sm text-slate-300">
                   <li className="rounded-lg bg-slate-800/80 px-3 py-2">Emily Wong — follow-up in 2 hours</li>
@@ -150,20 +152,25 @@ export default function PortalPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 text-slate-100 md:p-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row">
-        <aside className="w-full rounded-2xl border border-slate-700 bg-slate-900/80 p-4 lg:w-72">
-          <div className="mb-6">
+    <div className="min-h-screen [--focus-ring:#b7d59c] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-3 text-slate-100 sm:p-6 lg:p-8">
+      <div className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-col items-start gap-4 lg:flex-row lg:gap-6">
+        <aside className="w-full shrink-0 rounded-2xl border border-slate-700 bg-slate-900/80 p-4 lg:sticky lg:top-6 lg:w-64">
+          <div className="mb-4">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#9DBB7B]">Clinic Management</p>
             <h1 className="mt-2 text-2xl font-bold text-white">Operations hub</h1>
-            <p className="mt-2 text-sm text-slate-400">A lightweight staff workspace for appointments, patients, and teams.</p>
+            <p className="mt-2 hidden text-sm text-slate-400 lg:block">A lightweight staff workspace for appointments, patients, and teams.</p>
           </div>
-          <nav className="space-y-2">
+          <Link href="/" className="mb-4 inline-flex min-h-11 items-center text-sm text-slate-300 hover:text-white">← Clinic website</Link>
+          <button type="button" className="flex min-h-11 w-full items-center justify-between rounded-lg border border-slate-600 px-3 py-2 text-left text-sm font-semibold text-white lg:hidden" aria-expanded={navigationOpen} aria-controls="workspace-navigation" onClick={() => setNavigationOpen(!navigationOpen)}>
+            Workspace navigation <span aria-hidden="true">{navigationOpen ? '−' : '+'}</span>
+          </button>
+          <nav id="workspace-navigation" aria-label="Workspace" className={`${navigationOpen ? 'grid' : 'hidden'} mt-3 grid-cols-1 gap-2 sm:grid-cols-2 lg:mt-0 lg:grid lg:grid-cols-1`}>
             {sections.filter((section) => (section.id !== 'audit' && section.id !== 'system-status') || canReadAuditLog).map((section) => (
               <button
                 key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`w-full rounded-lg px-3 py-3 text-left text-sm font-medium transition ${activeSection === section.id ? 'bg-[#556B42] text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                onClick={() => { setActiveSection(section.id); setNavigationOpen(false); }}
+                aria-current={activeSection === section.id ? 'page' : undefined}
+                className={`min-h-11 w-full rounded-lg px-3 py-3 text-left text-sm font-medium transition ${activeSection === section.id ? 'bg-[#556B42] text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
               >
                 {section.label}
               </button>
@@ -171,13 +178,13 @@ export default function PortalPage() {
           </nav>
         </aside>
 
-        <main className="flex-1 rounded-2xl border border-slate-700 bg-slate-900/70 p-4 md:p-6">
+        <main className="min-w-0 w-full flex-1 [overflow-wrap:anywhere] rounded-2xl border border-slate-700 bg-slate-900/70 p-4 md:p-6">
           <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-[#9DBB7B]">Staff workspace</p>
-              <h2 className="text-3xl font-semibold text-white">{sections.find((section) => section.id === activeSection)?.label}</h2>
+              <h2 className="text-2xl font-semibold text-white sm:text-3xl">{sections.find((section) => section.id === activeSection)?.label}</h2>
             </div>
-            <div className="rounded-full border border-[#556B42] bg-[#556B42]/20 px-4 py-2 text-sm text-[#DCECD0]">
+            <div className="max-w-full shrink-0 self-start rounded-full border border-[#556B42] bg-[#556B42]/20 px-4 py-2 text-sm text-[#DCECD0]">
               {process.env.NODE_ENV === 'development' ? 'Development demo admin' : 'Live mode • production'}
             </div>
           </div>

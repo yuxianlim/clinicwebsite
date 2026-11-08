@@ -1,5 +1,7 @@
 "use client";
 
+import Modal from './Modal';
+
 import { useState } from 'react';
 import Image from 'next/image';
 
@@ -41,10 +43,10 @@ const About = () => {
           {practitioners.map((p, index) => (
             <div
               key={index}
-              onClick={() => setSelectedPractitioner(p)}
-              className="text-center bg-white p-6 rounded-lg shadow-md hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer transform"
+              onClick={() => setSelectedPractitioner(p)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedPractitioner(p); } } }
+              className="text-center bg-white p-6 rounded-lg shadow-md hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer transform"
             >
-              <Image unoptimized width={128} height={128} src={p.image} alt={`${p.name} 医师照片`} className="w-32 h-32 rounded-full mx-auto mb-4 hover:ring-4 ring-slate-400 transition-all" />
+              <Image onError={(event) => { if (!event.currentTarget.src.endsWith('/practitioner-placeholder.svg')) { event.currentTarget.srcset = ''; event.currentTarget.src = '/practitioner-placeholder.svg'; } }} unoptimized width={128} height={128} src={p.image} alt={`${p.name} 医师照片`} className="w-32 h-32 rounded-full mx-auto mb-4 hover:ring-4 ring-slate-400 transition-all" />
               <h3 className="text-xl font-semibold mb-2 text-slate-800">{p.name}</h3>
               <p className="text-sm text-gray-500 mb-3">{p.title}</p>
               <p className="text-gray-600 min-h-[60px]">{p.summary}</p>
@@ -54,23 +56,22 @@ const About = () => {
       </div>
 
       {selectedPractitioner && (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedPractitioner(null)}>
-          <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setSelectedPractitioner(null)} titleId="practitioner-title">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-800">{selectedPractitioner.name}</h2>
+                <h2 id="practitioner-title" className="text-2xl font-bold text-gray-800">{selectedPractitioner.name}</h2>
                 <p className="text-sm text-gray-500">{selectedPractitioner.title}</p>
               </div>
               <button
                 onClick={() => setSelectedPractitioner(null)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                aria-label="Close details"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-2xl text-gray-500 hover:bg-gray-100 hover:text-gray-700"
               >
                 ×
               </button>
             </div>
             <p className="text-gray-600 mb-4">{selectedPractitioner.fullBio}</p>
-          </div>
-        </div>
+        </Modal>
       )}
     </section>
   );

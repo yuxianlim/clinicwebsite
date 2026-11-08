@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js/pure';
 import { CardElement, Elements, useStripe, useElements } from '@stripe/react-stripe-js';
 
 type Topic = {

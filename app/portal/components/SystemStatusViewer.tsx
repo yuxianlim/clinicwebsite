@@ -151,6 +151,7 @@ export default function SystemStatusViewer() {
   const [integrationTestError, setIntegrationTestError] = useState('');
   const [integrationTestResults, setIntegrationTestResults] = useState<IntegrationSimulationResult[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -224,13 +225,31 @@ export default function SystemStatusViewer() {
   };
 
   return (
-    <section className="space-y-5">
+    <section className="min-w-0 space-y-5">
       <div>
         <h3 className="text-xl font-semibold text-white">Architecture Test Center</h3>
-        <p className="mt-1 text-sm text-slate-400">Connected requires verifiable evidence. Not tested during this check means no runtime result is available; Planned means required but not implemented, with no delivery date implied.</p>
+        <p className="mt-1 text-sm text-slate-400">Connection health, missing requirements, and the latest recorded evidence.</p>
+      {systemStatus && (
+        <div className="mt-4 space-y-4">
+          <nav aria-label="Connection status groups" className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+            {statuses.map((status) => (
+              <a key={status.id} href={`#status-${status.id.replaceAll(' ', '-')}`} className="min-w-0 rounded-xl border border-slate-700 bg-slate-900 p-3 hover:border-slate-500">
+                <span className={`block text-sm font-medium ${status.color}`}>{status.id}</span>
+                <span className="mt-1 block text-2xl font-semibold text-white">{systemStatus.items.filter((item) => item.status === status.id).length}</span>
+              </a>
+            ))}
+          </nav>
+          <label className="block text-sm font-medium text-slate-300">
+            Search connections
+            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Component, service, or missing requirement" className="mt-2 min-h-11 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 text-base text-white placeholder:text-slate-400" />
+          </label>
+        </div>
+      )}
+
         {systemStatus ? (
-          <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/40 p-4">
-            <h4 className="font-semibold text-white">Workflow evidence state</h4>
+          <details className="mt-4 rounded-xl border border-slate-700 bg-slate-950/40 p-4">
+            <summary className="min-h-11 font-semibold text-white">Workflow evidence state <span className="ml-2 text-xs font-normal text-slate-400">Expand overview</span></summary>
+            <p className="mt-2 text-sm text-slate-400">Connected requires verifiable evidence. Not tested means no runtime result is available. Planned means required but not implemented, with no delivery date implied.</p>
             <p className="mt-1 text-xs text-slate-400">Passed/Failed reflect the latest verifiable dashboard evidence. Partly Connected and Unknown remain Not Tested until end-to-end evidence is recorded.</p>
             <p className="mt-2 text-xs text-slate-500">Test outcomes: Passed · Failed · Not Tested · Planned · Not Applicable</p>
             <ul className="mt-3 grid gap-2 md:grid-cols-2">
@@ -245,7 +264,7 @@ export default function SystemStatusViewer() {
                 );
               })}
             </ul>
-          </div>
+          </details>
         ) : null}
         {systemStatus?.items.some((item) => item.testAction === 'stripe-test') ? (
           <button
@@ -259,8 +278,8 @@ export default function SystemStatusViewer() {
         ) : null}
         {stripeTestMessage ? <p className="mt-2 text-sm text-slate-300" role="status">{stripeTestMessage}</p> : null}
         {systemStatus?.developmentIntegrationSimulatorsEnabled ? (
-          <div className="mt-5 rounded-xl border border-amber-700/70 bg-amber-950/30 p-4">
-            <h4 className="font-semibold text-amber-200">Development-only workflow simulations</h4>
+          <details className="mt-5 rounded-xl border border-amber-700/70 bg-amber-950/30 p-4">
+            <summary className="min-h-11 font-semibold text-amber-200">Development-only workflow simulations</summary>
             <p className="mt-1 text-sm text-amber-100/80">
               Fictional inputs in the documented format are sent to the application-side adapters. Source is labeled Development Simulation, no device/provider is contacted, and these results never mark external connections Connected.
             </p>
@@ -286,7 +305,7 @@ export default function SystemStatusViewer() {
                 ))}
               </ul>
             ) : null}
-          </div>
+          </details>
         ) : null}
         {systemStatus?.environment === 'Development' && !systemStatus.developmentIntegrationSimulatorsEnabled ? (
           <p className="mt-4 text-sm text-slate-400">
@@ -304,60 +323,42 @@ export default function SystemStatusViewer() {
       {error ? <p className="rounded-lg border border-rose-900 bg-rose-950/30 p-4 text-sm text-rose-200" role="alert">{error}</p> : null}
       {!systemStatus && !error ? <p className="py-6 text-sm text-slate-400">Checking system status...</p> : null}
       {systemStatus ? statuses.map((status) => {
-        const items = (Array.isArray(systemStatus.items) ? systemStatus.items : []).filter((item) => item.status === status.id);
+        const items = systemStatus.items.filter((item) => item.status === status.id
+          && [item.name, item.description, item.dependencyGroup, item.missingRequirement].some((value) => value?.toLowerCase().includes(query.trim().toLowerCase())));
         return (
-          <section key={status.id} aria-labelledby={`status-${status.id.replaceAll(' ', '-')}`} className="space-y-2">
-            <h4 id={`status-${status.id.replaceAll(' ', '-')}`} className={`text-base font-semibold ${status.color}`}>
+          <section key={status.id} aria-labelledby={`status-${status.id.replaceAll(' ', '-')}`} className="min-w-0 space-y-3 scroll-mt-6">
+            <h4 id={`status-${status.id.replaceAll(' ', '-')}`} className={`scroll-mt-6 text-base font-semibold ${status.color}`}>
               {status.id} <span className="font-normal text-slate-400">({items.length})</span>
             </h4>
             {items.length ? (
-              <div className="overflow-x-auto rounded-lg border border-slate-700">
-                <table className="w-full min-w-[2200px] text-left text-sm">
-                  <thead className="bg-slate-800 text-slate-300">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Component / connection</th>
-                      <th className="px-4 py-3 font-semibold">Status</th>
-                      <th className="px-4 py-3 font-semibold">Dependency group</th>
-                      <th className="px-4 py-3 font-semibold">Blocker category</th>
-                      <th className="px-4 py-3 font-semibold">Connected components</th>
-                      <th className="px-4 py-3 font-semibold">Information exchanged</th>
-                      <th className="px-4 py-3 font-semibold">Supporting evidence</th>
-                      <th className="px-4 py-3 font-semibold">Last tested</th>
-                      <th className="px-4 py-3 font-semibold">Test source</th>
-                      <th className="px-4 py-3 font-semibold">Missing requirement</th>
-                      <th className="px-4 py-3 font-semibold">Safe error message</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {items.map((item) => (
-                      <tr key={`${item.kind}-${item.name}`} className="bg-slate-900/50 align-top text-slate-200">
-                        <th scope="row" className="w-56 whitespace-normal px-4 py-3">
-                          <span className="mb-1 block text-xs font-semibold uppercase text-slate-500">{item.kind}</span>
-                          <span className="font-medium">{item.name}</span>
-                          <span className="mt-2 block font-normal text-slate-400">{item.description}</span>
-                        </th>
-                        <td className={`whitespace-nowrap px-4 py-3 font-semibold ${status.color}`}>{item.status}</td>
-                        <td className="w-48 whitespace-normal px-4 py-3 text-slate-300">{item.dependencyGroup ?? 'Core application'}</td>
-                        <td className="w-48 whitespace-normal px-4 py-3 text-slate-400">{item.blockerCategory ?? 'None identified'}</td>
-                        <td className="w-56 whitespace-normal px-4 py-3 text-slate-300">{item.connectedComponents.join(', ')}</td>
-                        <td className="w-64 whitespace-normal px-4 py-3 text-slate-400">{item.informationExchanged}</td>
-                        <td className="w-80 whitespace-normal px-4 py-3 text-slate-400">
-                          <ul className="list-inside list-disc space-y-1">
-                            {item.evidence.map((evidence) => <li key={evidence}>{evidence}</li>)}
-                          </ul>
-                        </td>
-                        <td className="w-48 whitespace-normal px-4 py-3 text-slate-400">
-                          {item.lastTestedAt ? <time dateTime={item.lastTestedAt}>{new Date(item.lastTestedAt).toLocaleString()}</time> : 'Not tested during this status check'}
-                        </td>
-                        <td className="w-64 whitespace-normal px-4 py-3 text-slate-400">{item.testSource}</td>
-                        <td className="w-64 whitespace-normal px-4 py-3 text-slate-400">{item.missingRequirement ?? 'None identified for this item.'}</td>
-                        <td className="w-64 whitespace-normal px-4 py-3 text-slate-400">{item.safeErrorMessage ?? 'None specified.'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid min-w-0 gap-3 2xl:grid-cols-2">
+                {items.map((item) => (
+                  <article key={`${item.kind}-${item.name}`} className="min-w-0 rounded-xl border border-slate-700 bg-slate-900/60 p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1 basis-48">
+                        <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{item.kind} · {item.dependencyGroup ?? 'Core application'}</p>
+                        <h5 className="mt-2 break-words font-semibold text-white">{item.name}</h5>
+                      </div>
+                      <span className={`shrink-0 rounded-full border border-current px-3 py-1 text-xs font-semibold ${status.color}`}>{item.status}</span>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-slate-300">{item.description}</p>
+                    {item.missingRequirement && <div className="mt-3 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-sm leading-6 text-amber-100"><span className="font-semibold">Next step: </span>{item.missingRequirement}</div>}
+                    <details className="mt-4 border-t border-slate-700 pt-3">
+                      <summary className="min-h-11 text-sm font-medium text-slate-200">Evidence and connection details</summary>
+                      <dl className="mt-3 grid min-w-0 gap-4 text-sm sm:grid-cols-2">
+                        <div className="min-w-0"><dt className="font-medium text-slate-200">Connected components</dt><dd className="mt-1 break-words text-slate-400">{item.connectedComponents.join(', ')}</dd></div>
+                        <div className="min-w-0"><dt className="font-medium text-slate-200">Information exchanged</dt><dd className="mt-1 text-slate-400">{item.informationExchanged}</dd></div>
+                        <div className="min-w-0 sm:col-span-2"><dt className="font-medium text-slate-200">Supporting evidence</dt><dd><ul className="mt-1 list-disc space-y-2 pl-5 text-slate-400">{item.evidence.map((entry) => <li key={entry}>{entry}</li>)}</ul></dd></div>
+                        <div><dt className="font-medium text-slate-200">Last tested</dt><dd className="mt-1 text-slate-400">{item.lastTestedAt ? <time dateTime={item.lastTestedAt}>{new Date(item.lastTestedAt).toLocaleString()}</time> : 'Not tested during this status check'}</dd></div>
+                        <div><dt className="font-medium text-slate-200">Test source</dt><dd className="mt-1 text-slate-400">{item.testSource}</dd></div>
+                        <div><dt className="font-medium text-slate-200">Blocker category</dt><dd className="mt-1 text-slate-400">{item.blockerCategory ?? 'None identified'}</dd></div>
+                        <div><dt className="font-medium text-slate-200">Safe error message</dt><dd className="mt-1 text-slate-400">{item.safeErrorMessage ?? 'None specified'}</dd></div>
+                      </dl>
+                    </details>
+                  </article>
+                ))}
               </div>
-            ) : <p className="rounded-lg border border-slate-700 p-4 text-sm text-slate-400">No items in this status.</p>}
+            ) : <p className="rounded-lg border border-slate-700 p-4 text-sm text-slate-400">{query ? 'No matching connections in this group.' : 'No items in this status.'}</p>}
           </section>
         );
       }) : null}

@@ -138,3 +138,9 @@ Use `npm ci`, `npm test`, `npm run lint`, and `npm run build` with Node.js 22.16
 `npm run restore -- <snapshot-directory> <new-recovery-directory>` verifies checksums, database integrity and the audit chain, then restores into a new directory only. It refuses an existing destination. Stop every application worker before switching `AUDIT_LOG_DB_PATH` and `CLINIC_APPOINTMENTS_DB_PATH` to the recovered files. Protect and inspect the recovery directory before resuming service. Configure encrypted off-host storage, backup scheduling, retention, and recovery on another host before claiming disaster recovery. The dashboard reports a recent local verification as Partly Connected and never claims that a local snapshot alone completes managed recovery.
 
 See [SYSTEM_STATUS_RUNBOOK.md](SYSTEM_STATUS_RUNBOOK.md) for the remaining integration requirements and the checks completed in this environment.
+
+## Responsive UI checks
+
+`npm run test:ui` runs Chromium checks at 320, 390, 768, 1024 and 1440 pixels wide, plus an 844×390 landscape phone. It covers the public site, booking/sign-in/detail dialogs, all kiosk states, and every dashboard section. Checks include document overflow, dialog bounds and keyboard focus, long names/IDs, mobile navigation, status search and expanded evidence. Management and kiosk layout fixtures are fictional browser responses; these checks do not claim provider connectivity or change clinic records.
+
+The runner uses system Chromium when available, or `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. Otherwise install the standard browser with `npx playwright install chromium`. Stop an existing Next.js development server before running the checks, because Next.js uses a development build lock. The test server uses isolated database paths; its fixture database directory is removed afterward. Screenshots are saved under ignored `test-results/responsive` directories.

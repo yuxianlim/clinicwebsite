@@ -22,6 +22,7 @@ const Location = () => {
           </div>
           <div>
             <iframe
+              title="Clinic location map"
               src="https://maps.google.com/maps?q=3150%20Almaden%20Expy%20Ste%20111%20San%20Jose%20CA%2095118&output=embed"
               width="600"
               height="450"

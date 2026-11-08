@@ -98,9 +98,9 @@ export default function KioskClient() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f4f1e8] px-5 py-6 text-[#24352a] sm:px-10 sm:py-10">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-5xl flex-col">
-        <header className="flex items-center justify-between border-b border-[#cbd4c2] pb-5">
+    <main className="min-h-dvh [overflow-wrap:anywhere] bg-[#f4f1e8] px-5 py-6 text-[#24352a] sm:px-10 sm:py-10">
+      <div className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-5xl flex-col">
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[#cbd4c2] pb-5">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#6c7f59]">Clinic self-service</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Patient check-in</h1>
@@ -116,7 +116,7 @@ export default function KioskClient() {
               <div className="max-w-2xl">
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8a6b45]">Welcome</p>
                 <h2 className="mt-3 text-4xl font-semibold leading-tight sm:text-6xl">Let&apos;s get you checked in.</h2>
-                <p className="mt-5 max-w-xl text-lg leading-8 text-[#56665a]">Choose a secure way to find your appointment. Looking up your appointment will not check you in.</p>
+                <p className="mt-5 max-w-xl text-lg leading-8 text-[#56665a]">Choose how to find your appointment. Looking up your appointment will not check you in.</p>
               </div>
               <div className="mt-10 grid gap-4 sm:grid-cols-2">
                 <button onClick={showPhoneLookup} className="min-h-36 rounded-2xl border-2 border-[#718965] bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -143,7 +143,7 @@ export default function KioskClient() {
           )}
 
           {step === 'phone' && (
-            <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-7 shadow-sm sm:p-10">
+            <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-5 shadow-sm sm:p-10">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8a6b45]">Step 1 of 2</p>
               <h2 className="mt-3 text-3xl font-semibold">Verify your phone number</h2>
               <p className="mt-3 text-[#69766d]">Enter the last four digits of the phone number on your patient record.</p>
@@ -158,7 +158,7 @@ export default function KioskClient() {
           )}
 
           {step === 'scan' && (
-            <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-7 shadow-sm sm:p-10">
+            <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-5 shadow-sm sm:p-10">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8a6b45]">Scanner unavailable</p>
               <h2 className="mt-3 text-3xl font-semibold">Please see the front desk</h2>
               <p className="mt-4 leading-7 text-[#69766d]">This kiosk does not have a connected membership-ID scanner or verification service. We have not scanned or checked in anyone. A staff member can verify your membership ID at the front desk.</p>
@@ -167,10 +167,10 @@ export default function KioskClient() {
           )}
 
           {step === 'confirm' && patient && appointment && (
-            <div className="mx-auto w-full max-w-2xl rounded-3xl bg-white p-7 shadow-sm sm:p-10">
+            <div className="mx-auto w-full max-w-2xl rounded-3xl bg-white p-5 shadow-sm sm:p-10">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8a6b45]">Appointment found</p>
               <h2 className="mt-3 text-3xl font-semibold">Please confirm your check-in</h2>
-              <div className="mt-8 grid gap-4 rounded-2xl bg-[#f4f1e8] p-6 sm:grid-cols-2">
+              <div className="mt-8 grid min-w-0 grid-cols-1 gap-4 rounded-2xl bg-[#f4f1e8] p-6 sm:grid-cols-2">
                 <div><p className="text-sm text-[#69766d]">Patient</p><p className="mt-1 text-xl font-semibold">{patient.name}</p></div>
                 <div><p className="text-sm text-[#69766d]">Patient ID</p><p className="mt-1 text-xl font-semibold">{patient.id}</p></div>
                 <div><p className="text-sm text-[#69766d]">Appointment time</p><p className="mt-1 text-xl font-semibold">{appointment.time}</p></div>
@@ -185,7 +185,7 @@ export default function KioskClient() {
           )}
 
           {step === 'success' && (
-            <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-10 text-center shadow-sm">
+            <div className="mx-auto w-full max-w-xl rounded-3xl bg-white p-5 text-center sm:p-10 shadow-sm">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#dce8d4] text-3xl text-[#53684a]" aria-hidden="true">✓</div>
               <h2 className="mt-6 text-3xl font-semibold">Check-in successful</h2>
               <p className="mt-3 text-[#69766d]">Your check-in has been recorded. This kiosk will reset for the next patient.</p>

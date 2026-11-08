@@ -1,5 +1,7 @@
 "use client";
 
+import Modal from './Modal';
+
 import { useState, useEffect } from 'react';
 
 const Testimonials = () => {
@@ -32,9 +34,9 @@ const Testimonials = () => {
     <section id="testimonials" className="py-20 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-3xl font-bold text-center mb-12">患者评价</h2>
-        <div className="flex justify-center space-x-8 mb-8">
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
           {currentTestimonials.map((t, index) => (
-            <div key={index} onClick={() => setSelectedTestimonial(t)} className="bg-white p-6 rounded-lg shadow-md flex-1 max-w-sm h-48 flex flex-col justify-between hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer transform">
+            <div key={index} onClick={() => setSelectedTestimonial(t)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedTestimonial(t); } } } className="bg-white p-5 rounded-lg shadow-md min-w-0 min-h-48 flex flex-col justify-between hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer transform">
               <div>
                 <div className="flex justify-center gap-1 mb-2">
                   {Array.from({ length: 5 }, (_, i) => (
@@ -54,20 +56,22 @@ const Testimonials = () => {
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              className={`w-3 h-3 rounded-full transition-all ${i === current ? 'bg-slate-800 w-8' : 'bg-gray-300'}`}
-            />
+              aria-label={`Show testimonial group ${i + 1}`}
+              aria-pressed={i === current}
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${i === current ? 'bg-slate-800 text-white' : 'bg-gray-200 text-slate-600'}`}
+            >{i + 1}</button>
           ))}
         </div>
       </div>
 
       {selectedTestimonial && (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedTestimonial(null)}>
-          <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => setSelectedTestimonial(null)} titleId="testimonial-title">
             <div className="flex justify-between items-center mb-4">
-              <p className="font-semibold text-gray-800">{selectedTestimonial.name}</p>
+              <h2 id="testimonial-title" className="font-semibold text-gray-800">{selectedTestimonial.name}</h2>
               <button
                 onClick={() => setSelectedTestimonial(null)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                aria-label="Close details"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-2xl text-gray-500 hover:bg-gray-100 hover:text-gray-700"
               >
                 ×
               </button>
@@ -80,8 +84,7 @@ const Testimonials = () => {
               ))}
             </div>
             <p className="text-gray-600 mb-4">{selectedTestimonial.fullText}</p>
-          </div>
-        </div>
+        </Modal>
       )}
     </section>
   );

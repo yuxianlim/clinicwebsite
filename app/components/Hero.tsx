@@ -9,7 +9,7 @@ const Hero = () => {
   return (
     <section 
       id="hero" 
-      className="h-[500px] flex items-center justify-center text-white relative overflow-hidden"
+      className="min-h-[440px] px-4 pt-20 pb-12 sm:min-h-[500px] flex items-center justify-center text-white relative overflow-hidden"
       style={{
         backgroundImage: 'url(/leave.png)',
         backgroundSize: 'cover',
@@ -20,8 +20,8 @@ const Hero = () => {
       <div className="absolute inset-0 bg-black/30"></div>
       
       <div className="text-center relative z-10">
-        <h1 style={{ fontSize: '26px', color: '#ffffff' }} className="font-bold mb-4">Welcome to Felicia Ho</h1>
-        <p style={{ fontSize: '14px', color: '#ffffff' }} className="mb-8">专业的中医治疗服务，为您的健康保驾护航</p>
+        <h1 className="mb-4 text-3xl font-bold text-white sm:text-4xl">Welcome to Felicia Ho</h1>
+        <p className="mx-auto mb-8 max-w-xl text-base leading-7 text-white">专业的中医治疗服务，为您的健康保驾护航</p>
         <button
           onClick={() => setIsModalOpen(true)}
           style={{ backgroundColor: '#556B42' }}

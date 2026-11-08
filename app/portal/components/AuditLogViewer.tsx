@@ -75,9 +75,9 @@ export default function AuditLogViewer() {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="min-w-0 space-y-5">
       <div className="rounded-xl border border-amber-700/60 bg-amber-950/30 p-4 text-sm text-amber-100">
-        Verify Chain provides tamper evidence only. It does not replace access control, secure storage, monitoring, backups, or compliance procedures. Administrator sign-in is a demo flow in development; production requires configured server-side credentials and a session secret.
+        Hash-chain verification detects changes to audit events. It does not replace access controls, secure storage, monitoring, or backups.
       </div>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -92,15 +92,41 @@ export default function AuditLogViewer() {
         </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row">
-        <select value={module} onChange={(event) => setModule(event.target.value as 'all' | AuditModule)} className="min-h-11 rounded-lg border border-slate-700 bg-slate-800 px-3 text-slate-100">
+        <select aria-label="Filter audit activity" value={module} onChange={(event) => setModule(event.target.value as 'all' | AuditModule)} className="min-h-11 rounded-lg border border-slate-700 bg-slate-800 px-3 text-slate-100">
           {modules.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search event, actor, action, record, or hash" className="min-h-11 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 text-slate-100 placeholder:text-slate-500" />
+        <input aria-label="Search audit events" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search event, actor, action, record, or hash" className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 text-slate-100 placeholder:text-slate-500" />
       </div>
       {error ? <p className="rounded-lg border border-rose-900 bg-rose-950/30 p-4 text-sm text-rose-200">{error}</p> : null}
       {loading ? <p className="py-8 text-center text-sm text-slate-400">Loading audit events...</p> : filteredEvents.length ? (
-        <div className="overflow-x-auto rounded-xl border border-slate-700">
+        <>
+          <div className="space-y-3 lg:hidden">
+            {filteredEvents.map((event) => (
+              <article key={event.eventId} className="min-w-0 rounded-xl border border-slate-700 bg-slate-900/60 p-4 [overflow-wrap:anywhere]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <h4 className="min-w-0 font-semibold text-white">{event.action}</h4>
+                  <span className={`rounded-full border border-current px-2 py-1 text-xs ${event.result === 'success' ? 'text-emerald-300' : event.result === 'denied' || event.result === 'pending' ? 'text-amber-300' : 'text-rose-300'}`}>{event.result}</span>
+                </div>
+                <p className="mt-2 text-xs text-slate-400"><time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString()}</time> · {event.module}</p>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{event.safeChangeSummary}</p>
+                <details className="mt-3 border-t border-slate-700 pt-3">
+                  <summary className="min-h-11 text-sm font-medium text-slate-200">Event details</summary>
+                  <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                    {[
+                      ['Event ID', event.eventId], ['User / service ID', event.actorId], ['Role', event.role],
+                      ['Related record ID', event.relatedRecordId], ['Session ID', event.sessionId ?? 'N/A'],
+                      ['UTC date/time', event.occurredAt], ['Previous hash', event.previousHash], ['Entry hash', event.entryHash],
+                    ].map(([label, value]) => <div key={label} className="min-w-0"><dt className="font-medium text-slate-200">{label}</dt><dd className="mt-1 break-all text-xs text-slate-400">{value}</dd></div>)}
+                  </dl>
+                </details>
+              </article>
+            ))}
+          </div>
+          <div className="hidden min-w-0 lg:block">
+            <p className="mb-2 text-xs text-slate-400">Scroll the table horizontally to view all event fields.</p>
+            <div role="region" aria-label="Audit history table" tabIndex={0} className="max-w-full overflow-x-auto rounded-xl border border-slate-700">
           <table className="w-full min-w-[1500px] text-left text-sm">
+            <caption className="sr-only">Audit events with full hash-chain details</caption>
             <thead className="bg-slate-800 text-slate-300">
               <tr>
                 <th className="px-4 py-3 font-semibold">UTC date/time</th>
@@ -136,7 +162,9 @@ export default function AuditLogViewer() {
               ))}
             </tbody>
           </table>
-        </div>
+            </div>
+          </div>
+        </>
       ) : (
         <div className="rounded-xl border border-slate-700 bg-slate-900/50 px-5 py-12 text-center">
           <p className="font-medium text-white">No audit events found</p>

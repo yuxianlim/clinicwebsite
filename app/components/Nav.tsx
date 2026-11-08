@@ -59,7 +59,7 @@ const Nav = () => {
 
   return (
     <>
-      <nav className="fixed top-0 w-full bg-white shadow-md z-50">
+      <nav aria-label="Main navigation" className="fixed top-0 w-full bg-white shadow-md z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
@@ -67,7 +67,7 @@ const Nav = () => {
                 Felicia Ho
               </Link>
             </div>
-            <div className="hidden md:flex items-center space-x-8">
+            <div className="hidden xl:flex items-center gap-3 2xl:gap-6">
               <a href="#services" style={{ color: '#556B42' }} className="hover:opacity-70 transition-colors px-2 py-1">服务与治疗</a>
               <a href="#about" style={{ color: '#556B42' }} className="hover:opacity-70 transition-colors px-2 py-1">医师介绍</a>
               <a href="#ceu" style={{ color: '#556B42' }} className="hover:opacity-70 transition-colors px-2 py-1">CEU</a>
@@ -98,8 +98,8 @@ const Nav = () => {
                 {isLoggedIn ? 'Logout' : 'Login'}
               </button>
             </div>
-            <div className="md:hidden flex items-center">
-              <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700 hover:text-gray-900">
+            <div className="xl:hidden flex items-center">
+              <button aria-label={isOpen ? "Close navigation" : "Open navigation"} aria-expanded={isOpen} aria-controls="mobile-navigation" onClick={() => setIsOpen(!isOpen)} className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 hover:text-gray-900">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
@@ -108,8 +108,8 @@ const Nav = () => {
           </div>
           {isOpen && (
             <>
-              <div className="fixed inset-0 bg-black/20 z-40 md:hidden" onClick={() => setIsOpen(false)} />
-              <div className="fixed top-16 inset-x-0 z-50 md:hidden">
+              <div className="fixed inset-0 bg-black/20 z-40 xl:hidden" onClick={() => setIsOpen(false)} />
+              <div id="mobile-navigation" className="fixed top-16 inset-x-0 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto xl:hidden">
                 <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-xl">
                   <a href="#services" onClick={() => setIsOpen(false)} style={{ color: '#556B42' }} className="block px-3 py-2 hover:opacity-70 hover:bg-gray-50 rounded">服务与治疗</a>
                   <a href="#about" onClick={() => setIsOpen(false)} style={{ color: '#556B42' }} className="block px-3 py-2 hover:opacity-70 hover:bg-gray-50 rounded">医师介绍</a>

@@ -1,5 +1,7 @@
 "use client";
 
+import Modal from './Modal';
+
 import { useEffect, useState, type CSSProperties, FormEvent } from 'react';
 import { useBooking } from '@/app/context/BookingContext';
 import type { Appointment } from '@/app/context/BookingContext';
@@ -127,13 +129,13 @@ const BookingModal = () => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+    <Modal onClose={onClose} titleId="booking-title">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">预约挂号</h2>
+          <h2 id="booking-title" className="text-2xl font-bold text-gray-800">预约挂号</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            aria-label="Close booking"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-2xl text-gray-500 hover:bg-gray-100 hover:text-gray-700"
           >
             ×
           </button>
@@ -143,8 +145,9 @@ const BookingModal = () => {
         {availabilityError ? <p role="status" className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">{availabilityError} Submission will still be checked securely by the server.</p> : null}
         <form onSubmit={handleSubmit} className="space-y-4" onClick={(e) => e.stopPropagation()}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
+            <label htmlFor="booking-name" className="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
             <input
+              id="booking-name"
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -153,8 +156,9 @@ const BookingModal = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">联系电话 *</label>
+            <label htmlFor="booking-contact" className="block text-sm font-medium text-gray-700 mb-1">联系电话 *</label>
             <input
+              id="booking-contact"
               type="tel"
               value={formData.contact}
               onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
@@ -164,8 +168,9 @@ const BookingModal = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">预约日期 *</label>
+            <label htmlFor="booking-date" className="block text-sm font-medium text-gray-700 mb-1">预约日期 *</label>
             <input
+              id="booking-date"
               type="date"
               min={new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())}
               value={formData.date}
@@ -178,8 +183,8 @@ const BookingModal = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">选择医师 *</label>
-            <select
+            <label htmlFor="booking-practitioner" className="block text-sm font-medium text-gray-700 mb-1">选择医师 *</label>
+            <select id="booking-practitioner"
               value={formData.practitioner}
               onChange={(e) => {
                 setFormData({ ...formData, practitioner: e.target.value });
@@ -198,8 +203,8 @@ const BookingModal = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">预约时间 *</label>
-            <select
+            <label htmlFor="booking-time" className="block text-sm font-medium text-gray-700 mb-1">预约时间 *</label>
+            <select id="booking-time"
               value={formData.time}
               onChange={(e) => {
                 setFormData({ ...formData, time: e.target.value });
@@ -222,13 +227,12 @@ const BookingModal = () => {
               })}
             </select>
           </div>
-          <div className="flex justify-end space-x-4 mt-6">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors">取消</button>
-            <button type="submit" disabled={isSubmitting} style={{ backgroundColor: '#556B42' }} className="px-4 py-2 text-white rounded hover:opacity-90 transition-colors disabled:cursor-wait disabled:opacity-60">{isSubmitting ? '正在提交…' : '提交预约'}</button>
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
+            <button type="button" onClick={onClose} className="min-h-11 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition-colors">取消</button>
+            <button type="submit" disabled={isSubmitting} style={{ backgroundColor: '#556B42' }} className="min-h-11 px-4 py-2 text-white rounded hover:opacity-90 transition-colors disabled:cursor-wait disabled:opacity-60">{isSubmitting ? '正在提交…' : '提交预约'}</button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

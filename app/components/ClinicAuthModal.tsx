@@ -1,5 +1,7 @@
 "use client";
 
+import Modal from './Modal';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { type ClinicAuthMethod, type ClinicAuthRole, type ClinicAuthSession } from '@/app/lib/clinicAuth';
@@ -93,16 +95,15 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+    <Modal onClose={handleClose} titleId="auth-title">
         <div className="mb-5 flex items-start justify-between">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#556B42]">Secure access</p>
-            <h2 className="text-2xl font-bold text-slate-800">
+            <h2 id="auth-title" className="text-2xl font-bold text-slate-800">
               {step === 'role' ? 'Choose your access' : step === 'method' ? 'Select sign-in method' : 'Complete verification'}
             </h2>
           </div>
-          <button onClick={handleClose} className="text-xl text-slate-500 hover:text-slate-700">×</button>
+          <button onClick={handleClose} aria-label="Close sign-in" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700">×</button>
         </div>
 
         {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
@@ -141,6 +142,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  aria-label="Email address"
                   placeholder="Email address"
                   type="email"
                 />
@@ -148,6 +150,7 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  aria-label="Password"
                   placeholder="Password"
                   type="password"
                 />
@@ -182,7 +185,6 @@ export default function ClinicAuthModal({ isOpen, onClose, onAuthenticated }: Cl
             </button>
           </div>
         ) : null}
-      </div>
-    </div>
+    </Modal>
   );
 }
