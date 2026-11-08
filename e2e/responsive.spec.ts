@@ -59,8 +59,7 @@ test('all pages, dashboard sections, and dialogs adapt to the viewport', async (
     await page.getByRole('button', { name: 'Confirm appointment', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Your appointment has been saved.' })).toBeVisible();
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Register', exact: true }).first().click();
-    await expect(page.getByRole('status').filter({ hasText: 'Online registration payments are currently unavailable' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open learning workspace', exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('public.png'), fullPage: true });
     await noOverflow(page);
   });

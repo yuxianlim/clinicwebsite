@@ -1,6 +1,7 @@
 import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import Stripe from 'stripe';
 import { appendVerifiedStripeWebhookEvent } from '@/app/lib/auditStore.server';
+import { acceptLearningPayment, learningDemoEnabled } from '@/app/lib/learningStore.server';
 
 export const runtime = 'nodejs';
 
@@ -40,6 +41,17 @@ export async function POST(request: Request) {
   const configuration = stripeConfiguration();
   if (configuration.mode && event.livemode !== (configuration.mode === 'live')) return Response.json({ error: 'Payment notification mode does not match this environment.' }, { status: 400 });
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  if (paymentIntent.metadata?.purpose === 'demo-learning') {
+    if (!learningDemoEnabled()) return Response.json({ error: 'Demo learning is disabled.' }, { status: 503 });
+    if (event.type !== 'payment_intent.succeeded') return Response.json({ received: true, ignored: true });
+    if (event.livemode || paymentIntent.livemode || paymentIntent.object !== 'payment_intent' || paymentIntent.amount_received !== paymentIntent.amount)
+      return Response.json({ error: 'A settled sandbox payment is required.' }, { status: 400 });
+    try {
+      const processed = acceptLearningPayment({ purchaseId: paymentIntent.metadata.learningPurchaseId, intentId: paymentIntent.id,
+        eventId: event.id, amount: paymentIntent.amount, currency: paymentIntent.currency, livemode: event.livemode });
+      return Response.json({ received: true, duplicate: !processed });
+    } catch { return Response.json({ error: 'Demo learning payment could not be matched or saved.' }, { status: 400 }); }
+  }
   const topicId = paymentIntent.metadata?.topicId;
   const registrationId = paymentIntent.metadata?.registrationId;
   if (

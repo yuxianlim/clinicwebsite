@@ -28,8 +28,8 @@ test('online backup includes WAL writes, restores separately, and detects later 
     };
     writeFileSync(path.join(root, '.env.local'), Object.entries(settings)
       .map(([key, value]) => `${key}=${JSON.stringify(value?.replaceAll('\\', '/'))}`).join('\n'));
-    const environment = { ...process.env, NODE_ENV: 'development' };
-    for (const key of Object.keys(settings)) delete environment[key as keyof typeof environment];
+    const environment: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: 'development' };
+    for (const key of Object.keys(settings)) delete environment[key];
     const output = execFileSync(process.execPath, [
       path.join(process.cwd(), 'node_modules/tsx/dist/cli.mjs'),
       path.join(process.cwd(), 'scripts/backup.ts'),

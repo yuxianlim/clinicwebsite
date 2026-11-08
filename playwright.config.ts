@@ -24,6 +24,7 @@ export default defineConfig({
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
     { name: 'phone-landscape', use: { viewport: { width: 844, height: 390 } } },
     { name: 'workflows', testMatch: '**/clinic-workflows.spec.ts', use: { viewport: { width: 1440, height: 900 } } },
+    { name: 'learning', testMatch: '**/learning.spec.ts', use: { viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
     command: 'npm run dev -- --hostname 127.0.0.1 --port 3102', url: 'http://127.0.0.1:3102', reuseExistingServer: false,
@@ -32,7 +33,8 @@ export default defineConfig({
       CLINIC_LOGIN_RATE_LIMIT_DB_PATH: path.join(data, 'login-limits.sqlite'),
       AUDIT_LOG_DB_PATH: path.join(data, 'audit.sqlite'), CLINIC_APPOINTMENTS_DB_PATH: path.join(data, 'appointments.sqlite'),
       KIOSK_RATE_LIMIT_DB_PATH: path.join(data, 'kiosk-limits.sqlite'), CLINIC_AUTH_DB_PATH: path.join(data, 'auth.sqlite'),
-      CLINIC_BACKUP_DIR: path.join(data, 'backups'), STRIPE_SECRET_KEY: '', NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: '', STRIPE_WEBHOOK_SECRET: '',
+      CLINIC_BACKUP_DIR: path.join(data, 'backups'), STRIPE_SECRET_KEY: '', NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: '', STRIPE_WEBHOOK_SECRET: 'whsec_playwright_local_fixture',
+      ENABLE_DEVELOPMENT_CEU_DEMO: 'true',
       UBUNTU_HOST_HEALTH_URL: '', DATABASE_SERVER_HEALTH_URL: '',
     },
   },
