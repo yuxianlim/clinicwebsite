@@ -6,15 +6,15 @@ This prepares `aven.sean.tcmusa.ai` for a single Ubuntu server. It does not depl
 
 1. Work only in this repository. Do not copy `.env.local`, `.data`, databases, VPN/SSH files, or private documents from Downloads.
 2. Review `app/lib/deploymentMode.ts`, `compose.staging.yml`, `deploy/Caddyfile`, `.github/workflows/release-staging.yml`, and `deploy/server/deploy-staging.sh`.
-3. Run `npm ci`, `npm test`, `npm run lint`, and `npm run build`. Optional: build locally with `docker build -t clinicwebsite:review .` after Docker Desktop is available.
+3. Run `npm ci`, `npm test`, `npm run lint`, and `npm run build`. Optional: build locally with `docker build -t aven-staging:review .` after Docker Desktop is available.
 4. Commit only reviewed source/configuration. Confirm `git status --ignored` shows secrets and data ignored.
 
 ## 2. GitHub: review before enabling
 
-1. Review the draft workflow. Its read-only validation job runs the full Linux tests, lint, production build, and a non-publishing Docker build. Only then can the separate package-write job publish the commit-SHA tag under `ghcr.io/yuxianlim/clinicwebsite`; GitHub never connects to Ubuntu, the school VPN, or SSH.
-2. Confirm the repository/package stays private and restrict workflow approvals/branch writes as appropriate.
+1. Review the draft workflow. Its read-only validation job runs the full Linux tests, lint, production build, and a non-publishing Docker build. Only then can the separate package-write job publish the commit-SHA tag under `ghcr.io/yuxianlim/aven-staging`; GitHub never connects to Ubuntu, the school VPN, or SSH. The source repository remains `yuxianlim/clinicwebsite` on `master`.
+2. After the first publication, use a signed-in GitHub session to confirm the new `aven-staging` package is Private before treating it as restricted. Do not infer its visibility from the source repository or from another package.
 3. Commit the workflow only when ready. Run it manually once and inspect all checks and the image digest. Do not add personal SSH keys.
-4. Create separate least-privilege machine credentials: an Actions-read token for selecting successful runs and a Packages-read token for GHCR. Store them only in `/etc/aven-staging/deploy.env` on Ubuntu, not in GitHub Actions or this repository.
+4. Create separate least-privilege machine credentials: an Actions-read token scoped to the `yuxianlim/clinicwebsite` release workflow and a Packages-read token for the private `ghcr.io/yuxianlim/aven-staging` package. Store them only in `/etc/aven-staging/deploy.env` on Ubuntu, not in GitHub Actions or this repository.
 
 ## 3. Ubuntu: prepare, but do not run these steps until approved
 
@@ -49,7 +49,7 @@ Do this only after review, in a dedicated temporary directory; do not touch `/op
 ## Private decisions still required
 
 - School confirmation of the HTTPS-to-port-80 network boundary and allowed source addresses.
-- Separate Actions-read and Packages-read machine credentials scoped to `yuxianlim/clinicwebsite`.
+- Separate machine credentials: Actions-read access to `yuxianlim/clinicwebsite` and Packages-read access to `ghcr.io/yuxianlim/aven-staging`.
 - Staging Basic Auth username/password, administrator email/password/TOTP seed, and 32+ character session secret.
 - Backup retention, encrypted off-host destination, restore drill owner, maintenance window, and alerting for failed service/timer runs.
 - Whether fixed public demo staff/learner credentials are acceptable behind the outer gate. If not, replace that fixture-login design before launch.

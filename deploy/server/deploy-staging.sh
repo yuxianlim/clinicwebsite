@@ -9,7 +9,7 @@ release_file="$install_dir/deployed-release"
 repository="${GITHUB_REPOSITORY:?Set GITHUB_REPOSITORY in /etc/aven-staging/deploy.env}"
 image_repository="${STAGING_IMAGE_REPOSITORY:?Set STAGING_IMAGE_REPOSITORY in /etc/aven-staging/deploy.env}"
 test "$repository" = "yuxianlim/clinicwebsite"
-test "$image_repository" = "ghcr.io/yuxianlim/clinicwebsite"
+test "$image_repository" = "ghcr.io/yuxianlim/aven-staging"
 
 exec 9>"$install_dir/deploy.lock"
 flock -n 9 || exit 0
