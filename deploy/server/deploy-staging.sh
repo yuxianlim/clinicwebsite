@@ -15,17 +15,49 @@ exec 9>"$install_dir/deploy.lock"
 flock -n 9 || exit 0
 
 run_json="$(mktemp "$install_dir/.workflow-runs.XXXXXX")"
+response_headers="$(mktemp "$install_dir/.workflow-headers.XXXXXX")"
 previous_env="$(mktemp "$install_dir/.env.staging.previous.XXXXXX")"
-cleanup() { rm -f "$run_json" "$previous_env"; }
+cleanup() { rm -f "$run_json" "$response_headers" "$previous_env"; }
 trap cleanup EXIT
 
-curl --fail --silent --show-error --location \
-  --connect-timeout 10 --max-time 60 \
-  --header "Accept: application/vnd.github+json" \
-  --header "Authorization: Bearer $GITHUB_ACTIONS_TOKEN" \
-  --header "X-GitHub-Api-Version: 2022-11-28" \
-  --output "$run_json" \
-  "https://api.github.com/repos/$repository/actions/workflows/release-staging.yml/runs?branch=master&status=success&per_page=10"
+workflow_url="https://api.github.com/repos/$repository/actions/workflows/release-staging.yml/runs?branch=master&status=success&per_page=10"
+for attempt in 1 2 3 4; do
+  : >"$run_json"
+  : >"$response_headers"
+  http_status="000"
+  if http_status="$(curl --silent --show-error --location \
+    --connect-timeout 10 --max-time 60 \
+    --dump-header "$response_headers" \
+    --header "Accept: application/vnd.github+json" \
+    --header "X-GitHub-Api-Version: 2022-11-28" \
+    --header "User-Agent: aven-staging-deployer" \
+    --output "$run_json" \
+    --write-out '%{http_code}' \
+    "$workflow_url")" && test "$http_status" = "200"; then
+    break
+  fi
+
+  if test "$attempt" = "4"; then
+    echo "Release discovery failed after $attempt attempts (HTTP $http_status); the running application was not changed." >&2
+    exit 1
+  fi
+
+  retry_after="$(awk 'tolower($1) == "retry-after:" { gsub("\\r", "", $2); print $2; exit }' "$response_headers")"
+  rate_reset="$(awk 'tolower($1) == "x-ratelimit-reset:" { gsub("\\r", "", $2); print $2; exit }' "$response_headers")"
+  delay=$((15 * 2 ** (attempt - 1)))
+  if [[ "$http_status" =~ ^(403|429)$ ]]; then
+    if [[ "$retry_after" =~ ^[0-9]+$ ]]; then
+      delay="$retry_after"
+    elif [[ "$rate_reset" =~ ^[0-9]+$ ]]; then
+      now="$(date +%s)"
+      delay=$((rate_reset - now + 1))
+    fi
+  fi
+  (( delay < 1 )) && delay=1
+  (( delay > 300 )) && delay=300
+  echo "Release discovery attempt $attempt failed (HTTP $http_status); retrying after ${delay}s without changing the running application." >&2
+  sleep "$delay"
+done
 
 read -r run_id release_sha < <(python3 - "$run_json" <<'PY'
 import json, re, sys
@@ -51,7 +83,6 @@ fi
 if (( run_id <= current_run_id )); then exit 0; fi
 
 candidate="$image_repository:$release_sha"
-printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin >/dev/null
 docker pull "$candidate"
 digest="$(docker image inspect "$candidate" --format '{{index .RepoDigests 0}}')"
 [[ "$digest" == "$image_repository@sha256:"* ]]

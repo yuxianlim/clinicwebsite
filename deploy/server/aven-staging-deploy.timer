@@ -2,9 +2,10 @@
 Description=Check for a tested Aven staging release
 
 [Timer]
-OnCalendar=*-*-* 04:20:00 America/Los_Angeles
-RandomizedDelaySec=20m
-Persistent=true
+OnBootSec=5m
+OnUnitInactiveSec=5m
+RandomizedDelaySec=30s
+AccuracySec=30s
 Unit=aven-staging-deploy.service
 
 [Install]
