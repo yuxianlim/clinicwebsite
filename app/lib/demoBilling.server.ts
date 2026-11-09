@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { learningDatabase, appendDemoBillingAudit, createClinicPatient, listClinicPatients } from './auditStore.server';
 import { addClinicBusinessDays, clinicDateKey } from './clinicBusinessDays';
+import { fictionalWorkflowEnabled } from './deploymentMode';
 
-export const demoBillingEnabled = () => process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS === 'true';
+export const demoBillingEnabled = () => fictionalWorkflowEnabled(process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS);
 export type BillingActor = { role: 'admin' | 'clinic_staff'; sessionId: string };
 export class BillingError extends Error {}
 const fail = (message: string): never => { throw new BillingError(message); };

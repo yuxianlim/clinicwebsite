@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a tested Aven staging release
+
+[Timer]
+OnCalendar=*-*-* 04:20:00 America/Los_Angeles
+RandomizedDelaySec=20m
+Persistent=true
+Unit=aven-staging-deploy.service
+
+[Install]
+WantedBy=timers.target

@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { learningDatabase, appendDemoAlertAudit } from './auditStore.server';
 import { isMonitoringEvent, normalizeMonitoringReceipt, type MonitoringEvent } from './externalIntegrations.server';
+import { fictionalWorkflowEnabled } from './deploymentMode';
 
 export type DemoAlert = MonitoringEvent & { incidentId: string; receivedAt: string; source: 'local-demo-inbox' };
-export const demoAlertsEnabled = () => process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS === 'true';
+export const demoAlertsEnabled = () => fictionalWorkflowEnabled(process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS);
 const database = () => {
   const db = learningDatabase();
   db.exec('CREATE TABLE IF NOT EXISTS demo_alerts (event_id TEXT PRIMARY KEY, occurred_at TEXT NOT NULL, severity TEXT NOT NULL, code TEXT NOT NULL, incident_id TEXT NOT NULL UNIQUE, received_at TEXT NOT NULL)');

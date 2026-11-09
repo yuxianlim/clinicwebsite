@@ -339,12 +339,12 @@ export async function GET() {
     && Boolean(latestAdminAppointmentAudit?.result === 'success' && appointmentStoreStatus);
   const paymentsConfigured = Boolean(
     process.env.STRIPE_SECRET_KEY
-    && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    && (process.env.STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY),
   );
   const ceuSetupVerified = Boolean(auditStatus?.chainValid && latestCeuPaymentSetup && paymentConfiguration.mode);
   const stripeWebhookConfigured = Boolean(process.env.STRIPE_WEBHOOK_SECRET);
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? '';
-  const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+  const stripePublishableKey = process.env.STRIPE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
   const stripeModesMatch = stripeSecretKey.startsWith('sk_test_')
     && stripePublishableKey.startsWith('pk_test_')
     || stripeSecretKey.startsWith('sk_live_')

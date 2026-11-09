@@ -15,10 +15,10 @@ const stamp = async (file: string) => {
  * No records, filenames, credentials or checksums leave this server function. */
 export const systemStatusRevision = async () => {
   const sources = backupSources();
-  const stores = [...Object.values(sources), process.env.KIOSK_RATE_LIMIT_DB_PATH ?? path.join(process.cwd(), '.data', 'clinic-rate-limits.sqlite')];
+  const stores = [...Object.values(sources), process.env.KIOSK_RATE_LIMIT_DB_PATH ?? path.join(/* turbopackIgnore: true */ process.cwd(), '.data', 'clinic-rate-limits.sqlite')];
   const files = stores.flatMap((source) => [source, `${source}-wal`]);
   const mode = process.env.NODE_ENV ?? 'development';
-  files.push(...['.env', '.env.local', `.env.${mode}`, `.env.${mode}.local`].map((name) => path.join(process.cwd(), name)));
+  files.push(...['.env', '.env.local', `.env.${mode}`, `.env.${mode}.local`].map((name) => path.join(/* turbopackIgnore: true */ process.cwd(), name)));
   const root = backupDirectory();
   files.push(root);
   let backupNames: string[] = [];
@@ -30,9 +30,9 @@ export const systemStatusRevision = async () => {
     if (latest) files.push(...['manifest.json', 'audit.sqlite', 'appointments.sqlite'].map((name) => path.join(root, latest, name)));
   } catch { /* Missing backups are part of the stable revision, not a successful backup. */ }
   const configuration = [
-    'NODE_ENV', 'ENABLE_DEVELOPMENT_ADMIN_DEMO', 'ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS', 'ENABLE_DEVELOPMENT_CEU_DEMO',
+    'NODE_ENV', 'APP_DEPLOYMENT_MODE', 'ENABLE_FICTIONAL_STAGING_WORKFLOWS', 'ENABLE_DEVELOPMENT_ADMIN_DEMO', 'ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS', 'ENABLE_DEVELOPMENT_CEU_DEMO',
     'CLINIC_ADMIN_EMAIL', 'CLINIC_ADMIN_PASSWORD', 'CLINIC_ADMIN_TOTP_SECRET',
-    'STRIPE_SECRET_KEY', 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET',
+    'STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET',
     'UBUNTU_HOST_HEALTH_URL', 'UBUNTU_HOST_HEALTH_TOKEN', 'DATABASE_SERVER_HEALTH_URL', 'DATABASE_SERVER_HEALTH_TOKEN',
     'AUDIT_LOG_DB_PATH', 'CLINIC_APPOINTMENTS_DB_PATH', 'CLINIC_BACKUP_DIR', 'KIOSK_RATE_LIMIT_DB_PATH', 'KIOSK_TRUSTED_IP_HEADER',
   ].map((key) => process.env[key] ?? '');

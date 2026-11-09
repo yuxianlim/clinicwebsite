@@ -11,10 +11,10 @@ export type BackupReceipt = {
 };
 export const digest = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
 export const backupSources = (): BackupSources => ({
-  audit: process.env.AUDIT_LOG_DB_PATH ?? path.join(process.cwd(), '.data', 'clinic-audit.sqlite'),
-  appointments: process.env.CLINIC_APPOINTMENTS_DB_PATH ?? path.join(process.cwd(), '.data', 'clinic-appointments.sqlite'),
+  audit: process.env.AUDIT_LOG_DB_PATH ?? path.join(/* turbopackIgnore: true */ process.cwd(), '.data', 'clinic-audit.sqlite'),
+  appointments: process.env.CLINIC_APPOINTMENTS_DB_PATH ?? path.join(/* turbopackIgnore: true */ process.cwd(), '.data', 'clinic-appointments.sqlite'),
 });
-export const backupDirectory = () => process.env.CLINIC_BACKUP_DIR ?? path.join(process.cwd(), '.data', 'backups');
+export const backupDirectory = () => process.env.CLINIC_BACKUP_DIR ?? path.join(/* turbopackIgnore: true */ process.cwd(), '.data', 'backups');
 export const sourceFingerprint = (sources: BackupSources) => digest(JSON.stringify(sources));
 
 export const latestVerifiedBackup = async () => {

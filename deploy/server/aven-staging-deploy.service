@@ -1,0 +1,16 @@
+[Unit]
+Description=Deploy the latest tested Aven fictional staging release
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/aven-staging/deploy.env
+ExecStart=/opt/aven-staging/deploy/server/deploy-staging.sh
+User=aven-deploy
+Group=aven-deploy
+Nice=10
+TimeoutStartSec=20min
+UMask=0077
+PrivateTmp=true
+NoNewPrivileges=true

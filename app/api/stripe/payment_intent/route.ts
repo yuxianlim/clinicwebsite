@@ -1,4 +1,4 @@
-import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
+import { stagingStripeSandboxConfigured, stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import { randomUUID } from 'node:crypto';
 import Stripe from 'stripe';
 import { recordCeuPaymentSetup, recordServerAuditEvent } from '@/app/lib/auditStore.server';
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
   const secretKey = process.env.STRIPE_SECRET_KEY;
   const configuration = stripeConfiguration();
-  if (!secretKey || !configuration.scope) {
+  if (!secretKey || !configuration.scope || !stagingStripeSandboxConfigured()) {
     recordServerAuditEvent({ module: 'payments', action: 'CEU payment setup failed', relatedRecordId, result: 'failed', sessionId: null });
     return Response.json({ error: 'Payment is temporarily unavailable. Please try again later.' }, { status: 503 });
   }

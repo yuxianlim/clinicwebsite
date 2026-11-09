@@ -114,7 +114,7 @@ test('application API workflows use protected sessions, durable records, and ver
     await t.test('locally signed webhook fixtures enroll matching registrations once and reject invalid signatures', async () => {
       const registrationId = '11223344-5566-4788-99aa-bbccddeeff00';
       const paymentIntentId = 'pi_localFixture';
-      const source = `import { createPendingCeuEnrollment } from './app/lib/auditStore.server.ts'; createPendingCeuEnrollment({registrationId:'${registrationId}',paymentIntentId:'${paymentIntentId}',topicId:'fall-prevention',learnerName:'Fictional Learner',learnerEmail:'learner@example.invalid'});`;
+      const source = `const imported = await import('./app/lib/auditStore.server.ts'); const { createPendingCeuEnrollment } = imported.default ?? imported; createPendingCeuEnrollment({registrationId:'${registrationId}',paymentIntentId:'${paymentIntentId}',topicId:'fall-prevention',learnerName:'Fictional Learner',learnerEmail:'learner@example.invalid'});`;
       await promisify(execFile)(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', source], { env: environment });
       const payload = JSON.stringify({ id: 'evt_local_signed_success', object: 'event', type: 'payment_intent.succeeded', created: Math.floor(Date.now()/1000), livemode: false, data: { object: { object:'payment_intent', id: paymentIntentId, currency:'usd', amount:9500, metadata:{topicId:'fall-prevention',registrationId} } } });
       const send = (signature: string) => fetch(`${origin}/api/stripe/webhook`, { method:'POST', headers:{'stripe-signature':signature}, body:payload });

@@ -19,7 +19,7 @@ export async function POST() {
   }
 
   const secretKey = process.env.STRIPE_SECRET_KEY ?? '';
-  const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+  const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
   if (!secretKey.startsWith('sk_test_') || !publishableKey.startsWith('pk_test_')) {
     return Response.json({
       error: 'A matching Stripe test-mode key pair is required for this safe connectivity check.',

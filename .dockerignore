@@ -1,0 +1,16 @@
+**
+!app
+!app/**
+!assets
+!assets/**
+!public
+!public/**
+!deploy
+deploy/**
+!deploy/container-backup.mjs
+!package.json
+!package-lock.json
+!next.config.ts
+!instrumentation.ts
+!postcss.config.mjs
+!tsconfig.json

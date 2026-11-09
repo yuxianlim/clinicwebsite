@@ -1,8 +1,9 @@
 import { createHash, createHmac, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { appendDemoKioskAudit, appendSimulatedNfcAudit, createClinicPatient, getLatestAuditEvent, learningDatabase, listClinicPatients } from './auditStore.server';
 import { createAppointment, findKioskAppointmentForVerifiedPatient, getUnavailableAppointmentTimes, listAppointments } from './appointmentStore.server';
+import { fictionalWorkflowEnabled } from './deploymentMode';
 
-export const demoKioskEnabled = () => process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS === 'true';
+export const demoKioskEnabled = () => fictionalWorkflowEnabled(process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS);
 export class DemoKioskError extends Error {}
 const required = () => { if (!demoKioskEnabled()) throw new DemoKioskError('Development kiosk verification is disabled.'); };
 const date = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());

@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/.npm-cache/
+**/.npm/
 /.pnp
 .pnp.*
 .yarn/*
@@ -33,6 +35,33 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.staging.example
+
+# private deployment material
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.ovpn
+*.ppk
+*.kdbx
+*.doc
+*.docx
+*.pdf
+*.ppt
+*.pptx
+*.xls
+*.xlsx
+id_rsa*
+id_ed25519*
+/.ssh/
+/ssh/
+/vpn/
+/.npmrc
+/private/
+/secrets/
+*.sqlite*
 
 # vercel
 .vercel

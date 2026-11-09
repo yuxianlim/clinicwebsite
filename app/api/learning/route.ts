@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import Stripe from 'stripe';
-import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
+import { sandboxPublishableKey, stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import { SharedRateLimiter } from '@/app/lib/sharedRateLimit.server';
 import { authenticateLearner, createLearner, endLearnerSession, learnerCookie, learnerFromToken, learningAccount, learningDemoEnabled, LearningError, linkLearningIntent, recordLearningWatch, reserveLearningPurchase, startLearnerSession, submitLearningExam } from '@/app/lib/learningStore.server';
 
@@ -15,7 +15,7 @@ export async function GET() {
   if (!learningDemoEnabled()) return Response.json({ error: 'The learning demo is disabled. Set ENABLE_DEVELOPMENT_CEU_DEMO=true in .env.local and restart the development server.' }, { status: 404, headers });
   const user = learnerFromToken(await token());
   if (!user) return Response.json({ error: 'Sign in to view courses.' }, { status: 401, headers });
-  return Response.json(learningAccount(user), { headers });
+  return Response.json({ ...learningAccount(user), stripePublishableKey: sandboxPublishableKey() }, { headers });
 }
 
 export async function POST(request: Request) {
@@ -46,7 +46,8 @@ export async function POST(request: Request) {
         return Response.json({ error: 'Too many sign-in attempts. Wait a minute and retry.' }, { status: 429, headers });
       const user = action === 'register' ? createLearner(value('name'), value('email'), value('password')) : authenticateLearner(value('email'), value('password'));
       const issued = startLearnerSession(user.id);
-      return Response.json({ ok: true }, { headers: { ...headers, 'Set-Cookie': `${learnerCookie}=${issued}; HttpOnly; Path=/; SameSite=Strict; Max-Age=28800` } });
+      const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+      return Response.json({ ok: true }, { headers: { ...headers, 'Set-Cookie': `${learnerCookie}=${issued}; HttpOnly; Path=/; SameSite=Strict; Max-Age=28800${secure}` } });
     }
     if (action === 'signout') {
       if (sessionToken) endLearnerSession(sessionToken);

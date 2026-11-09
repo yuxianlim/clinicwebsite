@@ -1,7 +1,8 @@
-import { stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
+import { stagingStripeSandboxConfigured, stripeConfiguration } from '@/app/lib/stripeConfiguration.server';
 import Stripe from 'stripe';
 import { appendVerifiedStripeWebhookEvent } from '@/app/lib/auditStore.server';
 import { acceptLearningPayment, learningDemoEnabled } from '@/app/lib/learningStore.server';
+import { restrictedFictionalStagingEnabled } from '@/app/lib/deploymentMode';
 
 export const runtime = 'nodejs';
 
@@ -18,6 +19,9 @@ const paymentEvents: Record<string, { action: string; result: 'success' | 'faile
 };
 
 export async function POST(request: Request) {
+  if (!stagingStripeSandboxConfigured()) {
+    return Response.json({ error: 'Stripe sandbox configuration is required for fictional staging.' }, { status: 503 });
+  }
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     return Response.json({ error: 'Payment verification is not configured.' }, { status: 503 });
@@ -27,6 +31,7 @@ export async function POST(request: Request) {
   if (!signature) return Response.json({ error: 'Invalid payment notification.' }, { status: 400 });
 
   const payload = await request.text();
+  if (payload.length > 1_000_000) return Response.json({ error: 'Payment notification is too large.' }, { status: 413 });
   let event: Stripe.Event;
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_webhook_signature_verification');
@@ -35,12 +40,14 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid payment notification.' }, { status: 400 });
   }
 
+  if (restrictedFictionalStagingEnabled() && event.livemode) return Response.json({ error: 'Live Stripe events are refused in fictional staging.' }, { status: 400 });
   const eventMapping = paymentEvents[event.type];
   if (!eventMapping) return Response.json({ received: true, ignored: true });
 
   const configuration = stripeConfiguration();
   if (configuration.mode && event.livemode !== (configuration.mode === 'live')) return Response.json({ error: 'Payment notification mode does not match this environment.' }, { status: 400 });
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  if (restrictedFictionalStagingEnabled() && paymentIntent.livemode) return Response.json({ error: 'Live Stripe payment objects are refused in fictional staging.' }, { status: 400 });
   if (paymentIntent.metadata?.purpose === 'demo-learning') {
     if (!learningDemoEnabled()) return Response.json({ error: 'Demo learning is disabled.' }, { status: 503 });
     if (event.type !== 'payment_intent.succeeded') return Response.json({ received: true, ignored: true });

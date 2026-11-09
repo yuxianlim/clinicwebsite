@@ -2,6 +2,7 @@ import path from 'node:path';
 import { billingDemoCookie, createBillingDemoSession } from '@/app/lib/serverClinicSession';
 import { demoBillingEnabled } from '@/app/lib/demoBilling.server';
 import { SharedRateLimiter } from '@/app/lib/sharedRateLimit.server';
+import { fictionalDataSource } from '@/app/lib/deploymentMode';
 
 export const runtime = 'nodejs';
 const state = globalThis as typeof globalThis & { demoBillingLimiter?: SharedRateLimiter };
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     if (body?.email !== 'billing.staff@example.invalid' || body?.password !== 'DemoBilling!2026') return Response.json({ error: 'Demo staff credentials could not be verified.' }, { status: 401 });
     const { token } = createBillingDemoSession();
-    return Response.json({ ok: true, role: 'clinic_staff', source: 'development-fixture' }, { headers: { 'Cache-Control': 'no-store', 'Set-Cookie': `${billingDemoCookie}=${token}; HttpOnly; Path=/; SameSite=Strict; Max-Age=28800` } });
+    const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    return Response.json({ ok: true, role: 'clinic_staff', source: fictionalDataSource() }, { headers: { 'Cache-Control': 'no-store', 'Set-Cookie': `${billingDemoCookie}=${token}; HttpOnly; Path=/; SameSite=Strict; Max-Age=28800${secure}` } });
   } catch { return Response.json({ error: 'Demo staff sign-in is unavailable.' }, { status: 503 }); }
 }

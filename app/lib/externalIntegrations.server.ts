@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { fictionalWorkflowEnabled } from './deploymentMode';
 
 export const developmentIntegrationSimulatorsEnabled = () => (
-  process.env.NODE_ENV === 'development'
-  && process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS === 'true'
+  fictionalWorkflowEnabled(process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS)
 );
 
 export type IntegrationSimulationTarget =

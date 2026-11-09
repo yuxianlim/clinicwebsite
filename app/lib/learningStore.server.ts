@@ -2,8 +2,9 @@ import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from
 import { learningDatabase, appendLearningAudit } from './auditStore.server';
 import { demoCourses, demoAnswerKey } from './demoCourses.server';
 import { attemptsPerBlock, learningBlockPrice, passingPercent, retryWaitMs, type LearningAccount } from './learningPolicy';
+import { fictionalWorkflowEnabled } from './deploymentMode';
 
-export const learningDemoEnabled = () => process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEVELOPMENT_CEU_DEMO === 'true';
+export const learningDemoEnabled = () => fictionalWorkflowEnabled(process.env.ENABLE_DEVELOPMENT_CEU_DEMO);
 export class LearningError extends Error {}
 const fail = (message: string): never => { throw new LearningError(message); };
 type User = { id: string; name: string; email: string; password: string };
@@ -223,7 +224,7 @@ export const learningEvidence = () => {
 /** Explicit admin-triggered fictional data. Never creates a Stripe event or
  * represents generated progress as observed human attendance. */
 export const seedLearningFixtures = () => {
-  if (!learningDemoEnabled() || process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS !== 'true') return fail('Development fixture setup is disabled.');
+  if (!learningDemoEnabled() || !fictionalWorkflowEnabled(process.env.ENABLE_DEVELOPMENT_INTEGRATION_SIMULATORS)) return fail('Fictional fixture setup is disabled.');
   const result = atomic(() => {
     const marker = db().prepare('SELECT user_id FROM learning_fixture_runs WHERE id = ?').get('learning-v1') as { user_id: string } | undefined;
     const password = 'DemoLearning!2026';

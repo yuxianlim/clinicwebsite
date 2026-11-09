@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import { learningOrganizer, type LearningAccount, type LearningCourseState } from '@/app/lib/learningPolicy';
@@ -10,8 +10,7 @@ const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'curren
 const field = 'min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900';
 const button = 'min-h-12 rounded-xl bg-[#3158d8] px-5 py-3 font-semibold text-white disabled:opacity-50';
 const panel = 'rounded-2xl border border-[#dce1e8] bg-white p-5 sm:p-8';
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
-const stripePromise = publishableKey.startsWith('pk_test_') ? loadStripe(publishableKey) : null;
+type LearningAccountResponse = LearningAccount & { stripePublishableKey: string | null };
 async function send(body: Record<string, unknown>) {
   const response = await fetch('/api/learning', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await response.json();
@@ -124,7 +123,7 @@ function FinalExam({ course, refresh }: { course: LearningCourseState; refresh: 
 }
 
 export default function LearningWorkspace() {
-  const [account, setAccount] = useState<LearningAccount | null>(null);
+  const [account, setAccount] = useState<LearningAccountResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [register, setRegister] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -132,10 +131,12 @@ export default function LearningWorkspace() {
   const [selected, setSelected] = useState<string | null>(null);
   const [checkout, setCheckout] = useState(false);
   const detail = useRef<HTMLElement>(null);
+  const stripePromise = useMemo(() => account?.stripePublishableKey?.startsWith('pk_test_')
+    ? loadStripe(account.stripePublishableKey) : null, [account?.stripePublishableKey]);
   const refresh = useCallback(async () => {
     const response = await fetch('/api/learning', { cache: 'no-store' });
     const data = await response.json();
-    if (response.ok) { setAccount(data); setError(''); return data as LearningAccount; }
+    if (response.ok) { setAccount(data); setError(''); return data as LearningAccountResponse; }
     setAccount(null); if (response.status !== 401) setError(data.error ?? 'Learning is unavailable.');
     return null;
   }, []);

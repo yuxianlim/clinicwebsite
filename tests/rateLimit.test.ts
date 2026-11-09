@@ -26,7 +26,7 @@ test('simultaneous independent processes cannot exceed the shared request budget
   const file = path.join(root, 'limit.sqlite');
   new SharedRateLimiter(file, 8, 60_000).close();
   try {
-    const source = `import { SharedRateLimiter } from './app/lib/sharedRateLimit.server.ts'; const limiter = new SharedRateLimiter(${JSON.stringify(file)},8,60000); console.log(limiter.consume('shared-client')); limiter.close();`;
+    const source = `const imported = await import('./app/lib/sharedRateLimit.server.ts'); const { SharedRateLimiter } = imported.default ?? imported; const limiter = new SharedRateLimiter(${JSON.stringify(file)},8,60000); console.log(limiter.consume('shared-client')); limiter.close();`;
     const results = await Promise.all(Array.from({ length: 12 }, () => run(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', source])));
     assert.equal(results.filter((result) => result.stdout.trim() === 'false').length, 8);
     assert.equal(results.filter((result) => result.stdout.trim() === 'true').length, 4);

@@ -1,0 +1,34 @@
+:80 {
+  log {
+    output stdout
+    format json
+  }
+
+  @stripe_webhook {
+    method POST
+    path /api/stripe/webhook
+  }
+  handle @stripe_webhook {
+    reverse_proxy app:3000 {
+      header_up X-Forwarded-Proto https
+    }
+  }
+
+  handle {
+    basic_auth {
+      {$STAGING_BASIC_AUTH_USER} {$STAGING_BASIC_AUTH_HASH}
+    }
+    reverse_proxy app:3000 {
+      header_up X-Forwarded-Proto https
+      health_uri /api/health
+      health_interval 15s
+    }
+  }
+
+  header {
+    -Server
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer
+    X-Frame-Options DENY
+  }
+}

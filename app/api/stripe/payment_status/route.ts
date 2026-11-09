@@ -1,9 +1,11 @@
 import Stripe from 'stripe';
 import { getCeuEnrollmentByPaymentIntent, getVerifiedStripePaymentState } from '@/app/lib/auditStore.server';
+import { stagingStripeSandboxConfigured } from '@/app/lib/stripeConfiguration.server';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
+  if (!stagingStripeSandboxConfigured()) return Response.json({ error: 'Stripe sandbox configuration is required for fictional staging.' }, { status: 503 });
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
     return Response.json({ error: 'Payment verification is not configured.' }, { status: 503 });
